@@ -41,7 +41,7 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 		unsigned char* l_dstp_G = dstp_G + y * dst_pitch_G;
 		unsigned char* l_dstp_B = dstp_B + y * dst_pitch_B;
 
-		unsigned char* l_dstp_BGRA = dstp_BGRA + (height - y) * dst_pitch_BGRA; // reverse scan for RGB interleaved
+		unsigned char* l_dstp_BGRA = dstp_BGRA + (height - y - 1) * dst_pitch_BGRA; // reverse scan for RGB interleaved
 
 		unsigned char* l_srcp_Y = (unsigned char*)srcp_Y + y * src_pitch_Y;
 		unsigned char* l_srcp_U = (unsigned char*)srcp_U + (y >> 1) * src_pitch_U;
@@ -338,7 +338,7 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 					l_dstp_G += 64;
 					l_dstp_B += 64;
 
-					l_dstp_BGRA -= 64 * 4;
+					l_dstp_BGRA += 64 * 4;
 				}
 
 				// last cols
