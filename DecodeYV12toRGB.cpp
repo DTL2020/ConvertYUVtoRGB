@@ -2,7 +2,9 @@
 #include <windows.h>
 #include <immintrin.h>
 
-void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, int threads, int cpuFlags)
+#define RGB_DIV_SHIFT 6
+
+void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
 {
 	auto srcp_Y = src->GetReadPtr(PLANAR_Y);
 	auto srcp_U = src->GetReadPtr(PLANAR_U);
@@ -208,6 +210,58 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 					ymm_G_1_16l = _mm256_sub_epi16(ymm_G_1_16l, ymm_U_dh16l_subG);
 					ymm_G_1_16h = _mm256_sub_epi16(ymm_G_1_16h, ymm_U_dh16h_subG);
 
+					// RGB post processing with gain and offset 
+					const __m256i ymm_RGBoffset = _mm256_set1_epi16(RGBo);
+					const __m256i ymm_RGBgain = _mm256_set1_epi16(RGBg);
+
+					ymm_R_0_16l = _mm256_add_epi16(ymm_R_0_16l, ymm_RGBoffset);
+					ymm_R_0_16h = _mm256_add_epi16(ymm_R_0_16h, ymm_RGBoffset);
+					ymm_R_1_16l = _mm256_add_epi16(ymm_R_1_16l, ymm_RGBoffset);
+					ymm_R_1_16h = _mm256_add_epi16(ymm_R_1_16h, ymm_RGBoffset);
+
+					ymm_G_0_16l = _mm256_add_epi16(ymm_G_0_16l, ymm_RGBoffset);
+					ymm_G_0_16h = _mm256_add_epi16(ymm_G_0_16h, ymm_RGBoffset);
+					ymm_G_1_16l = _mm256_add_epi16(ymm_G_1_16l, ymm_RGBoffset);
+					ymm_G_1_16h = _mm256_add_epi16(ymm_G_1_16h, ymm_RGBoffset);
+
+					ymm_B_0_16l = _mm256_add_epi16(ymm_B_0_16l, ymm_RGBoffset);
+					ymm_B_0_16h = _mm256_add_epi16(ymm_B_0_16h, ymm_RGBoffset);
+					ymm_B_1_16l = _mm256_add_epi16(ymm_B_1_16l, ymm_RGBoffset);
+					ymm_B_1_16h = _mm256_add_epi16(ymm_B_1_16h, ymm_RGBoffset);
+
+
+					ymm_R_0_16l = _mm256_mullo_epi16(ymm_R_0_16l, ymm_RGBgain);
+					ymm_R_0_16h = _mm256_mullo_epi16(ymm_R_0_16h, ymm_RGBgain);
+					ymm_R_1_16l = _mm256_mullo_epi16(ymm_R_1_16l, ymm_RGBgain);
+					ymm_R_1_16h = _mm256_mullo_epi16(ymm_R_1_16h, ymm_RGBgain);
+
+					ymm_G_0_16l = _mm256_mullo_epi16(ymm_G_0_16l, ymm_RGBgain);
+					ymm_G_0_16h = _mm256_mullo_epi16(ymm_G_0_16h, ymm_RGBgain);
+					ymm_G_1_16l = _mm256_mullo_epi16(ymm_G_1_16l, ymm_RGBgain);
+					ymm_G_1_16h = _mm256_mullo_epi16(ymm_G_1_16h, ymm_RGBgain);
+
+					ymm_B_0_16l = _mm256_mullo_epi16(ymm_B_0_16l, ymm_RGBgain);
+					ymm_B_0_16h = _mm256_mullo_epi16(ymm_B_0_16h, ymm_RGBgain);
+					ymm_B_1_16l = _mm256_mullo_epi16(ymm_B_1_16l, ymm_RGBgain);
+					ymm_B_1_16h = _mm256_mullo_epi16(ymm_B_1_16h, ymm_RGBgain);
+
+
+					ymm_R_0_16l = _mm256_srai_epi16(ymm_R_0_16l, RGB_DIV_SHIFT);
+					ymm_R_0_16h = _mm256_srai_epi16(ymm_R_0_16h, RGB_DIV_SHIFT);
+					ymm_R_1_16l = _mm256_srai_epi16(ymm_R_1_16l, RGB_DIV_SHIFT);
+					ymm_R_1_16h = _mm256_srai_epi16(ymm_R_1_16h, RGB_DIV_SHIFT);
+
+					ymm_G_0_16l = _mm256_srai_epi16(ymm_G_0_16l, RGB_DIV_SHIFT);
+					ymm_G_0_16h = _mm256_srai_epi16(ymm_G_0_16h, RGB_DIV_SHIFT);
+					ymm_G_1_16l = _mm256_srai_epi16(ymm_G_1_16l, RGB_DIV_SHIFT);
+					ymm_G_1_16h = _mm256_srai_epi16(ymm_G_1_16h, RGB_DIV_SHIFT);
+
+					ymm_B_0_16l = _mm256_srai_epi16(ymm_B_0_16l, RGB_DIV_SHIFT);
+					ymm_B_0_16h = _mm256_srai_epi16(ymm_B_0_16h, RGB_DIV_SHIFT);
+					ymm_B_1_16l = _mm256_srai_epi16(ymm_B_1_16l, RGB_DIV_SHIFT);
+					ymm_B_1_16h = _mm256_srai_epi16(ymm_B_1_16h, RGB_DIV_SHIFT);
+
+
 					//pack 16bit to 8bit
 					__m256i ymm_R_0_8 = _mm256_packus_epi16(ymm_R_0_16l, ymm_R_0_16h);
 					__m256i ymm_R_1_8 = _mm256_packus_epi16(ymm_R_1_16l, ymm_R_1_16h);
@@ -376,8 +430,15 @@ class DecodeYV12toRGB : public GenericVideoFilter
 
 	int Matrix;
 
+	short RGBgain;
+	short RGBoffset;
+
 public:
-	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, IScriptEnvironment* env) : GenericVideoFilter(_child), threads(threads_), Matrix(_matrix)
+	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, IScriptEnvironment* env) : GenericVideoFilter(_child), 
+		threads(threads_), 
+		Matrix(_matrix), 
+		RGBgain((short)_gain), 
+		RGBoffset((short)_offset)
 	{
 		_cpuFlags = env->GetCPUFlags();
 //		vi.pixel_type = VideoInfo::CS_RGBP8;
@@ -424,7 +485,7 @@ public:
 
 		if (vi_src.ComponentSize() == 1)
 		{
-			Convert(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv,  threads, _cpuFlags);
+			Convert(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 		}
 		else
 			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
@@ -435,7 +496,7 @@ public:
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), env);
+	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(128), args[4].AsInt(0), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
@@ -443,7 +504,7 @@ const AVS_Linkage* AVS_linkage = 0;
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage* const vectors)
 {
 	AVS_linkage = vectors;
-	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i", Create_Decode, 0);
+	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i[gain]i[offset]i", Create_Decode, 0);
 
 	return "Decode YV12 to RGB sample plugin";
 }
