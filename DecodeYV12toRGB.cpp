@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <immintrin.h>
 
-void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, int threads, int cpuFlags)
+void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, int threads, int cpuFlags)
 {
 	auto srcp_Y = src->GetReadPtr(PLANAR_Y);
 	auto srcp_U = src->GetReadPtr(PLANAR_U);
@@ -17,11 +17,6 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 	auto src_pitch_U = src->GetPitch(PLANAR_U);
 	auto src_pitch_V = src->GetPitch(PLANAR_V);
 
-	/*
-	auto dstp_R = dst->GetWritePtr(PLANAR_R_ALIGNED);
-	auto dstp_G = dst->GetWritePtr(PLANAR_G_ALIGNED);
-	auto dstp_B = dst->GetWritePtr(PLANAR_B_ALIGNED);
-	*/
 	auto dstp_R = dst->GetWritePtr(4);
 	auto dstp_G = dst->GetWritePtr(6);
 	auto dstp_B = dst->GetWritePtr(2);
@@ -52,23 +47,37 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 			{
 				const int col64 = row_size_Y - (row_size_Y % 64); // load 64 Y samples and 
 
-				__m256i ymm_w128 = _mm256_set1_epi16(128);
+				const __m256i ymm_w128 = _mm256_set1_epi16(128);
 
-				__m256i ymm_w73 = _mm256_set1_epi16(73); // Kr of 601 ? , div64
-				__m256i ymm_w130 = _mm256_set1_epi16(130); // Kb of 601 ? , div64
+				const __m256i ymm_wKr = _mm256_set1_epi16(Kr); 
+				const __m256i ymm_wKb = _mm256_set1_epi16(Kb); 
 
-				__m256i ymm_w25 = _mm256_set1_epi16(25); // Kgu of 601 ? , div64
-				__m256i ymm_w37 = _mm256_set1_epi16(37); // Kgv of 601 ? , div64
+				const __m256i ymm_wKgu = _mm256_set1_epi16(Kgu); 
+				const __m256i ymm_wKgv = _mm256_set1_epi16(Kgv); 
 
+				/*
 				// fill Y with 0 to 63 - debug
-/*				for (int idx = 0; idx < 64; idx++)
+				for (int idx = 0; idx < 64; idx++)
 				{
 					l_srcp_Y[idx] = (unsigned char)idx;
 				}
-*/				
+				
+				// fill U with 0 to 32 - debug
+				for (int idx = 0; idx < 32; idx++)
+				{
+					l_srcp_U[idx] = (unsigned char)idx;
+				}
+
+				// fill V with //0 to 32 - debug
+				for (int idx = 0; idx < 32; idx++)
+				{
+					l_srcp_V[idx] = 128;
+				}
+				*/
+
 				for (int col = 0; col < col64; col += 64)
 				{
-					__m256i ymm0_Y0 = _mm256_lddqu_si256((const __m256i*)l_srcp_Y); // better align start addr with pre-conversion of 32-bytes aligned (if exist) and use load_ps
+					__m256i ymm0_Y0 = _mm256_lddqu_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
 					__m256i ymm1_Y1 = _mm256_lddqu_si256((const __m256i*)(l_srcp_Y + 32));
 					__m256i ymm2_U = _mm256_lddqu_si256((const __m256i*)(l_srcp_U));
 					__m256i ymm3_V = _mm256_lddqu_si256((const __m256i*)(l_srcp_V));
@@ -85,44 +94,50 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 					__m256i ymm_U_dh = _mm256_unpackhi_epi8(ymm2_U, ymm2_U);
 					__m256i ymm_V_dh = _mm256_unpackhi_epi8(ymm3_V, ymm3_V);
 
-					__m256i ymm_U_dl16l = _mm256_unpacklo_epi8(ymm_U_dl, _mm256_setzero_si256());
-					__m256i ymm_V_dl16l = _mm256_unpacklo_epi8(ymm_V_dl, _mm256_setzero_si256());
+					__m256i ymm_U0 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x20);
+					__m256i ymm_V0 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x20);
 
-					__m256i ymm_U_dl16h = _mm256_unpackhi_epi8(ymm_U_dl, _mm256_setzero_si256());
-					__m256i ymm_V_dl16h = _mm256_unpackhi_epi8(ymm_V_dl, _mm256_setzero_si256());
+					__m256i ymm_U1 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x31);
+					__m256i ymm_V1 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x31);
 
-					__m256i ymm_U_dh16l = _mm256_unpacklo_epi8(ymm_U_dh, _mm256_setzero_si256());
-					__m256i ymm_V_dh16l = _mm256_unpacklo_epi8(ymm_V_dh, _mm256_setzero_si256());
+					__m256i ymm_U0_16l = _mm256_unpacklo_epi8(ymm_U0, _mm256_setzero_si256());
+					__m256i ymm_V0_16l = _mm256_unpacklo_epi8(ymm_V0, _mm256_setzero_si256());
 
-					__m256i ymm_U_dh16h = _mm256_unpackhi_epi8(ymm_U_dh, _mm256_setzero_si256());
-					__m256i ymm_V_dh16h = _mm256_unpackhi_epi8(ymm_V_dh, _mm256_setzero_si256());
+					__m256i ymm_U0_16h = _mm256_unpackhi_epi8(ymm_U0, _mm256_setzero_si256());
+					__m256i ymm_V0_16h = _mm256_unpackhi_epi8(ymm_V0, _mm256_setzero_si256());
 
+					__m256i ymm_U1_16l = _mm256_unpacklo_epi8(ymm_U1, _mm256_setzero_si256());
+					__m256i ymm_V1_16l = _mm256_unpacklo_epi8(ymm_V1, _mm256_setzero_si256());
 
-					ymm_U_dl16l = _mm256_sub_epi16(ymm_U_dl16l, ymm_w128); // superscalarity of 3 at IceLake/SkyLake
-					ymm_V_dl16l = _mm256_sub_epi16(ymm_V_dl16l, ymm_w128);
-
-					ymm_U_dl16h = _mm256_sub_epi16(ymm_U_dl16h, ymm_w128);
-					ymm_V_dl16h = _mm256_sub_epi16(ymm_V_dl16h, ymm_w128);
-
-					ymm_U_dh16l = _mm256_sub_epi16(ymm_U_dh16l, ymm_w128);
-					ymm_V_dh16l = _mm256_sub_epi16(ymm_V_dh16l, ymm_w128);
-
-					ymm_U_dh16h = _mm256_sub_epi16(ymm_U_dh16h, ymm_w128);
-					ymm_V_dh16h = _mm256_sub_epi16(ymm_V_dh16h, ymm_w128);
+					__m256i ymm_U1_16h = _mm256_unpackhi_epi8(ymm_U1, _mm256_setzero_si256());
+					__m256i ymm_V1_16h = _mm256_unpackhi_epi8(ymm_V1, _mm256_setzero_si256());
 
 
-					__m256i ymm_V_dl16l_addR = _mm256_mullo_epi16(ymm_V_dl16l, ymm_w73);
-					__m256i ymm_V_dl16h_addR = _mm256_mullo_epi16(ymm_V_dl16h, ymm_w73);
+					ymm_U0_16l = _mm256_sub_epi16(ymm_U0_16l, ymm_w128); // superscalarity of 3 at IceLake/SkyLake
+					ymm_V0_16l = _mm256_sub_epi16(ymm_V0_16l, ymm_w128);
 
-					__m256i ymm_V_dh16l_addR = _mm256_mullo_epi16(ymm_V_dh16l, ymm_w73);
-					__m256i ymm_V_dh16h_addR = _mm256_mullo_epi16(ymm_V_dh16h, ymm_w73);
+					ymm_U0_16h = _mm256_sub_epi16(ymm_U0_16h, ymm_w128);
+					ymm_V0_16h = _mm256_sub_epi16(ymm_V0_16h, ymm_w128);
+
+					ymm_U1_16l = _mm256_sub_epi16(ymm_U1_16l, ymm_w128);
+					ymm_V1_16l = _mm256_sub_epi16(ymm_V1_16l, ymm_w128);
+
+					ymm_U1_16h = _mm256_sub_epi16(ymm_U1_16h, ymm_w128);
+					ymm_V1_16h = _mm256_sub_epi16(ymm_V1_16h, ymm_w128);
+
+
+					__m256i ymm_V_dl16l_addR = _mm256_mullo_epi16(ymm_V0_16l, ymm_wKr);
+					__m256i ymm_V_dl16h_addR = _mm256_mullo_epi16(ymm_V0_16h, ymm_wKr);
+
+					__m256i ymm_V_dh16l_addR = _mm256_mullo_epi16(ymm_V1_16l, ymm_wKr);
+					__m256i ymm_V_dh16h_addR = _mm256_mullo_epi16(ymm_V1_16h, ymm_wKr);
 
 					
-					__m256i ymm_U_dl16l_addB = _mm256_mullo_epi16(ymm_U_dl16l, ymm_w130);
-					__m256i ymm_U_dl16h_addB = _mm256_mullo_epi16(ymm_U_dl16h, ymm_w130);
+					__m256i ymm_U_dl16l_addB = _mm256_mullo_epi16(ymm_U0_16l, ymm_wKb);
+					__m256i ymm_U_dl16h_addB = _mm256_mullo_epi16(ymm_U0_16h, ymm_wKb);
 
-					__m256i ymm_U_dh16l_addB = _mm256_mullo_epi16(ymm_U_dh16l, ymm_w130);
-					__m256i ymm_U_dh16h_addB = _mm256_mullo_epi16(ymm_U_dh16h, ymm_w130);
+					__m256i ymm_U_dh16l_addB = _mm256_mullo_epi16(ymm_U1_16l, ymm_wKb);
+					__m256i ymm_U_dh16h_addB = _mm256_mullo_epi16(ymm_U1_16h, ymm_wKb);
 
 					ymm_V_dl16l_addR = _mm256_srai_epi16(ymm_V_dl16l_addR, 6);
 					ymm_V_dl16h_addR = _mm256_srai_epi16(ymm_V_dl16h_addR, 6);
@@ -153,18 +168,18 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 					__m256i ymm_B_1_16h = _mm256_add_epi16(ymm_Y1_16h, ymm_U_dh16h_addB);
 
 					//G
-					__m256i ymm_V_dl16l_subG = _mm256_mullo_epi16(ymm_V_dl16l, ymm_w37);
-					__m256i ymm_V_dl16h_subG = _mm256_mullo_epi16(ymm_V_dl16h, ymm_w37);
+					__m256i ymm_V_dl16l_subG = _mm256_mullo_epi16(ymm_V0_16l, ymm_wKgv);
+					__m256i ymm_V_dl16h_subG = _mm256_mullo_epi16(ymm_V0_16h, ymm_wKgv);
 
-					__m256i ymm_V_dh16l_subG = _mm256_mullo_epi16(ymm_V_dh16l, ymm_w37);
-					__m256i ymm_V_dh16h_subG = _mm256_mullo_epi16(ymm_V_dh16h, ymm_w37);
+					__m256i ymm_V_dh16l_subG = _mm256_mullo_epi16(ymm_V1_16l, ymm_wKgv);
+					__m256i ymm_V_dh16h_subG = _mm256_mullo_epi16(ymm_V1_16h, ymm_wKgv);
 
 
-					__m256i ymm_U_dl16l_subG = _mm256_mullo_epi16(ymm_U_dl16l, ymm_w25);
-					__m256i ymm_U_dl16h_subG = _mm256_mullo_epi16(ymm_U_dl16h, ymm_w25);
+					__m256i ymm_U_dl16l_subG = _mm256_mullo_epi16(ymm_U0_16l, ymm_wKgu);
+					__m256i ymm_U_dl16h_subG = _mm256_mullo_epi16(ymm_U0_16h, ymm_wKgu);
 
-					__m256i ymm_U_dh16l_subG = _mm256_mullo_epi16(ymm_U_dh16l, ymm_w25);
-					__m256i ymm_U_dh16h_subG = _mm256_mullo_epi16(ymm_U_dh16h, ymm_w25);
+					__m256i ymm_U_dh16l_subG = _mm256_mullo_epi16(ymm_U1_16l, ymm_wKgu);
+					__m256i ymm_U_dh16h_subG = _mm256_mullo_epi16(ymm_U1_16h, ymm_wKgu);
 
 
 					ymm_V_dl16l_subG = _mm256_srai_epi16(ymm_V_dl16l_subG, 6);
@@ -349,36 +364,67 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 	}
 }
 
-/*
-template void Invert<uint8_t>(unsigned char* _srcp, unsigned char* _dstp, int src_pitch, int dst_pitch, int height, int row_size, int bits, int threads, int cpuFlags);
-template void Invert<uint16_t>(unsigned char* _srcp, unsigned char* _dstp, int src_pitch, int dst_pitch, int height, int row_size, int bits, int threads, int cpuFlags);
-template void Invert<float>(unsigned char* _srcp, unsigned char* _dstp, int src_pitch, int dst_pitch, int height, int row_size, int bits, int threads, int cpuFlags);
-*/
-
 class DecodeYV12toRGB : public GenericVideoFilter
 {
 	int threads;
 	int _cpuFlags;
 
+	short Kr; // div64
+	short Kb; // div64
+	short Kgu; // div64
+	short Kgv; // div64
+
+	int Matrix;
+
 public:
-	DecodeYV12toRGB(PClip _child, int threads_, IScriptEnvironment* env) : GenericVideoFilter(_child), threads(threads_)
+	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, IScriptEnvironment* env) : GenericVideoFilter(_child), threads(threads_), Matrix(_matrix)
 	{
 		_cpuFlags = env->GetCPUFlags();
-//		vi.pixel_type = VideoInfo::CS_RGBP8;//CS_BGR24;
-		vi.pixel_type = VideoInfo::CS_BGR32;//CS_BGR24;
+//		vi.pixel_type = VideoInfo::CS_RGBP8;
+		vi.pixel_type = VideoInfo::CS_BGR32;
+
+		if (!(_cpuFlags & CPUF_AVX2))
+		{
+			env->ThrowError("DecodeYV12toRGB: Only AVX2 and later SIMD co-processor supported.");
+		}
+
+		if (Matrix == 0) // 601
+		{
+			Kr = 90; // Kr of 601 ? , div64  1.402
+			Kb = 113; // Kb of 601 ? , div64  1.772
+			Kgu = 22; // Kgu of 601 ? , div64 0.344
+			Kgv = 46; // Kgv of 601 ? , div64 0.714 */
+		}
+		else if (Matrix == 1) // 709
+		{
+			Kr = 100; // Kr of 709 ? , div64  1.575
+			Kb = 119; // Kb of 709 ? , div64  1.856
+			Kgu = 12; // Kgu of 709 ? , div64 0.187
+			Kgv = 30; // Kgv of 709 ? , div64 0.468
+		}
+		else if (Matrix == 2) // 2020 (ncl ?)
+		{
+			Kr = 94; // Kr of 2020 ? , div64  1.475
+			Kb = 120; // Kb of 2020 ? , div64  1.88
+			Kgu = 10; // Kgu of 2020 ? , div64 0.165
+			Kgv = 37; // Kgv of 2020 ? , div64 0.571
+		}
+		else
+			env->ThrowError("DecodeYV12toRGB: matrix %d not supported.", Matrix);
+
+
+
 	}
 
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env)
 	{
 		PVideoFrame dst = env->NewVideoFrame(vi);
-
 		VideoInfo vi_src = child->GetVideoInfo();
-
 		PVideoFrame src = child->GetFrame(n, env);
 
 		if (vi_src.ComponentSize() == 1)
 		{
-			Convert(dst, src, vi, vi_src,  threads, _cpuFlags);
+			Convert(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv,  threads, _cpuFlags);
 		}
 		else
 			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
@@ -389,7 +435,7 @@ public:
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), env);
+	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
@@ -397,7 +443,7 @@ const AVS_Linkage* AVS_linkage = 0;
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage* const vectors)
 {
 	AVS_linkage = vectors;
-	env->AddFunction("DecodeYV12toRGB", "c[threads]i", Create_Decode, 0);
+	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i", Create_Decode, 0);
 
 	return "Decode YV12 to RGB sample plugin";
 }
