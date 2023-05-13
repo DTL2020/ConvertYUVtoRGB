@@ -9,7 +9,7 @@ Usage:
 
 DecodeYV12toRGB(matrix=0, threads=1, gain=64, offset=0)
 
-For Full levels mapping:
+Default conversion do not change levels mapping (narrow YV12 to narrow RGB). For 'Full' levels mapping:
 
 DecodeYV12toRGB(matrix=0, threads=1, gain=74, offset=-16)
 
