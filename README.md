@@ -6,8 +6,11 @@ AVX2 (and AVX512 in future) example of single-pass YV12 to RGB32 decoder (curren
 Run several times faster at single thread in compare with AVS+ 3.7.3-times ConvertToRGB32() (looks like UV upscale + dematrix in 2 separate passes).
 
 Usage:
+
 DecodeYV12toRGB(matrix=0, threads=1, gain=64, offset=0)
+
 For Full levels mapping:
+
 DecodeYV12toRGB(matrix=0, threads=1, gain=74, offset=-16)
 
 Params:
