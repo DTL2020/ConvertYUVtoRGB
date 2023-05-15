@@ -540,6 +540,9 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 				}
 			}
 	}
+
+	if (!bCacheStore)
+		_mm_sfence();
 }
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
