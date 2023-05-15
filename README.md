@@ -16,6 +16,7 @@ DecodeYV12toRGB(matrix=0, threads=1, gain=74, offset=-16)
 Params:
 1. matrix (integer), 0 - Rec.601, 1 - Rec.709, 2 - Rec.2020 (ncl ?), default 0.
 2. threads (integer) - number of threads for internal OpenMP single frame multithreading, default 1.
-3. offset (signed short) - value to add to 8bit RGB value after decoding, default 0 (no offset)
+3. offset (signed short) - value to add to 8bit RGB value after decoding, default 0 (no offset).
 4. gain (short) - scaled to 64 multiplier (64 mean 1.0float - no gain), default 64 (no gain).
-
+5. cl (bool) - cache load (true/false), default true.
+6. cs (bool) - cache store (true/false), default true.
