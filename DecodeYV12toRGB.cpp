@@ -75,41 +75,8 @@ public:
 		DWORD dwOldProtU;
 		DWORD dwOldProtV;
 		bool bRes;
-
-		if (!bCacheLoad)
-		{
-			auto srcp_Y = src->GetReadPtr(PLANAR_Y);
-			auto srcp_U = src->GetReadPtr(PLANAR_U);
-			auto srcp_V = src->GetReadPtr(PLANAR_V);
-
-			auto height = src->GetHeight(PLANAR_Y);
-			auto src_pitch_Y = src->GetPitch(PLANAR_Y);
-			auto src_pitch_U = src->GetPitch(PLANAR_U);
-			auto src_pitch_V = src->GetPitch(PLANAR_V);
-
-			bRes = VirtualProtect((LPVOID)srcp_Y, height * src_pitch_Y, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtY);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: WriteCombine on src Y not set. Error code %d", GetLastError());
-			}
-
-			bRes = VirtualProtect((LPVOID)srcp_U, (height / 2) * src_pitch_U, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtU);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: WriteCombine on src U not set. Error code %d", GetLastError());
-			}
-
-			bRes = VirtualProtect((LPVOID)srcp_V, (height / 2) * src_pitch_V, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtV);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: WriteCombine on src V not set. Error code %d", GetLastError());
-			}
-
-		}
-
+		
+		
 		if (vi_src.ComponentSize() == 1)
 		{
 
@@ -129,42 +96,6 @@ public:
 		}
 		else
 			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
-
-		if (!bCacheLoad)
-		{
-			auto srcp_Y = src->GetReadPtr(PLANAR_Y);
-			auto srcp_U = src->GetReadPtr(PLANAR_U);
-			auto srcp_V = src->GetReadPtr(PLANAR_V);
-
-			auto height = src->GetHeight(PLANAR_Y);
-			auto src_pitch_Y = src->GetPitch(PLANAR_Y);
-			auto src_pitch_U = src->GetPitch(PLANAR_U);
-			auto src_pitch_V = src->GetPitch(PLANAR_V);
-
-			bRes = VirtualProtect((LPVOID)srcp_Y, height * src_pitch_Y, dwOldProtY, NULL);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for Y src plane protection. Error code %d", GetLastError());
-			}
-
-			bRes = VirtualProtect((LPVOID)srcp_U, (height / 2) * src_pitch_U, dwOldProtU, NULL);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for U src plane protection. Error code %d", GetLastError());
-			}
-
-			bRes = VirtualProtect((LPVOID)srcp_V, (height / 2) * src_pitch_V, dwOldProtV, NULL);
-
-			if (bRes == false)
-			{
-				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for V src plane protection. Error code %d", GetLastError());
-			}
-
-
-		}
-
 
 		return dst;
 	}
@@ -270,7 +201,7 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 						ymm2_U = _mm256_stream_load_si256((const __m256i*)(l_srcp_U));
 						ymm3_V = _mm256_stream_load_si256((const __m256i*)(l_srcp_V));
 					}
-
+					
 					__m256i ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
 					__m256i ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
 
