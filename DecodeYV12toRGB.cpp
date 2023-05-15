@@ -4,7 +4,104 @@
 
 #define RGB_DIV_SHIFT 6
 
-void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
+class DecodeYV12toRGB : public GenericVideoFilter
+{
+	int threads;
+	int _cpuFlags;
+
+	short Kr; // div64
+	short Kb; // div64
+	short Kgu; // div64
+	short Kgv; // div64
+
+	int Matrix;
+
+	short RGBgain;
+	short RGBoffset;
+
+	bool bCacheLoad;
+	bool bCacheStore;
+
+public:
+	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, IScriptEnvironment* env) : GenericVideoFilter(_child),
+		threads(threads_),
+		Matrix(_matrix),
+		RGBgain((short)_gain),
+		RGBoffset((short)_offset),
+		bCacheLoad(_cl),
+		bCacheStore(_cs)
+	{
+		_cpuFlags = env->GetCPUFlags();
+		//		vi.pixel_type = VideoInfo::CS_RGBP8;
+		vi.pixel_type = VideoInfo::CS_BGR32;
+
+		if (!(_cpuFlags & CPUF_AVX2))
+		{
+			env->ThrowError("DecodeYV12toRGB: Only AVX2 and later SIMD co-processor supported.");
+		}
+
+		if (Matrix == 0) // 601
+		{
+			Kr = 90; // Kr of 601 ? , div64  1.402
+			Kb = 113; // Kb of 601 ? , div64  1.772
+			Kgu = 22; // Kgu of 601 ? , div64 0.344
+			Kgv = 46; // Kgv of 601 ? , div64 0.714 */
+		}
+		else if (Matrix == 1) // 709
+		{
+			Kr = 100; // Kr of 709 ? , div64  1.575
+			Kb = 119; // Kb of 709 ? , div64  1.856
+			Kgu = 12; // Kgu of 709 ? , div64 0.187
+			Kgv = 30; // Kgv of 709 ? , div64 0.468
+		}
+		else if (Matrix == 2) // 2020 (ncl ?)
+		{
+			Kr = 94; // Kr of 2020 ? , div64  1.475
+			Kb = 120; // Kb of 2020 ? , div64  1.88
+			Kgu = 10; // Kgu of 2020 ? , div64 0.165
+			Kgv = 37; // Kgv of 2020 ? , div64 0.571
+		}
+		else
+			env->ThrowError("DecodeYV12toRGB: matrix %d not supported.", Matrix);
+	}
+
+	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env)
+	{
+		PVideoFrame dst = env->NewVideoFrame(vi);
+		VideoInfo vi_src = child->GetVideoInfo();
+		PVideoFrame src = child->GetFrame(n, env);
+
+		if (vi_src.ComponentSize() == 1)
+		{
+//				process(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+				if (bCacheLoad && bCacheStore)
+					DecodeYV12<true, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+				if (!bCacheLoad && bCacheStore)
+					DecodeYV12<false, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+				if (bCacheLoad && !bCacheStore)
+					DecodeYV12<true, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+				if (!bCacheLoad && !bCacheStore)
+					DecodeYV12<false, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+
+		}
+		else
+			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
+		return dst;
+	}
+
+	template <bool bCacheLoad, bool bCacheStore>
+	void DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+
+};
+
+
+template <bool bCacheLoad, bool bCacheStore>
+void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
 {
 	auto srcp_Y = src->GetReadPtr(PLANAR_Y);
 	auto srcp_U = src->GetReadPtr(PLANAR_U);
@@ -79,10 +176,25 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 
 				for (int col = 0; col < col64; col += 64)
 				{
-					__m256i ymm0_Y0 = _mm256_lddqu_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
-					__m256i ymm1_Y1 = _mm256_lddqu_si256((const __m256i*)(l_srcp_Y + 32));
-					__m256i ymm2_U = _mm256_lddqu_si256((const __m256i*)(l_srcp_U));
-					__m256i ymm3_V = _mm256_lddqu_si256((const __m256i*)(l_srcp_V));
+					__m256i ymm0_Y0;
+					__m256i ymm1_Y1;
+					__m256i ymm2_U;
+					__m256i ymm3_V;
+
+					if (bCacheLoad)
+					{
+						ymm0_Y0 = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
+						ymm1_Y1 = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
+						ymm2_U = _mm256_load_si256((const __m256i*)(l_srcp_U));
+						ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
+					}
+					else
+					{
+						ymm0_Y0 = _mm256_stream_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
+						ymm1_Y1 = _mm256_stream_load_si256((const __m256i*)(l_srcp_Y + 32));
+						ymm2_U = _mm256_stream_load_si256((const __m256i*)(l_srcp_U));
+						ymm3_V = _mm256_stream_load_si256((const __m256i*)(l_srcp_V));
+					}
 
 					__m256i ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
 					__m256i ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
@@ -388,15 +500,28 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 					ymm_BGRA_48_55 = _mm256_blendv_epi8(ymm_BGRA_48_55, ymm_R_48_55, ymm_blend_R);
 					ymm_BGRA_56_63 = _mm256_blendv_epi8(ymm_BGRA_56_63, ymm_R_56_63, ymm_blend_R);
 
-
-					_mm256_store_si256((__m256i*)l_dstp_BGRA, ymm_BGRA_0_7);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 32), ymm_BGRA_8_15);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 64), ymm_BGRA_16_23);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 96), ymm_BGRA_24_31);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 128), ymm_BGRA_32_39);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 160), ymm_BGRA_40_47);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 192), ymm_BGRA_48_55);
-					_mm256_store_si256((__m256i*)(l_dstp_BGRA + 224), ymm_BGRA_56_63);
+					if (bCacheStore)
+					{
+						_mm256_store_si256((__m256i*)l_dstp_BGRA, ymm_BGRA_0_7);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 32), ymm_BGRA_8_15);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 64), ymm_BGRA_16_23);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 96), ymm_BGRA_24_31);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 128), ymm_BGRA_32_39);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 160), ymm_BGRA_40_47);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 192), ymm_BGRA_48_55);
+						_mm256_store_si256((__m256i*)(l_dstp_BGRA + 224), ymm_BGRA_56_63);
+					}
+					else
+					{
+						_mm256_stream_si256((__m256i*)l_dstp_BGRA, ymm_BGRA_0_7);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 32), ymm_BGRA_8_15);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 64), ymm_BGRA_16_23);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 96), ymm_BGRA_24_31);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 128), ymm_BGRA_32_39);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 160), ymm_BGRA_40_47);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 192), ymm_BGRA_48_55);
+						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 224), ymm_BGRA_56_63);
+					}
 
 
 					l_srcp_Y += 64; // in bytes
@@ -418,85 +543,16 @@ void Convert(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_sr
 	}
 }
 
-class DecodeYV12toRGB : public GenericVideoFilter
-{
-	int threads;
-	int _cpuFlags;
-
-	short Kr; // div64
-	short Kb; // div64
-	short Kgu; // div64
-	short Kgv; // div64
-
-	int Matrix;
-
-	short RGBgain;
-	short RGBoffset;
-
-public:
-	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, IScriptEnvironment* env) : GenericVideoFilter(_child), 
-		threads(threads_), 
-		Matrix(_matrix), 
-		RGBgain((short)_gain), 
-		RGBoffset((short)_offset)
-	{
-		_cpuFlags = env->GetCPUFlags();
-//		vi.pixel_type = VideoInfo::CS_RGBP8;
-		vi.pixel_type = VideoInfo::CS_BGR32;
-
-		if (!(_cpuFlags & CPUF_AVX2))
-		{
-			env->ThrowError("DecodeYV12toRGB: Only AVX2 and later SIMD co-processor supported.");
-		}
-
-		if (Matrix == 0) // 601
-		{
-			Kr = 90; // Kr of 601 ? , div64  1.402
-			Kb = 113; // Kb of 601 ? , div64  1.772
-			Kgu = 22; // Kgu of 601 ? , div64 0.344
-			Kgv = 46; // Kgv of 601 ? , div64 0.714 */
-		}
-		else if (Matrix == 1) // 709
-		{
-			Kr = 100; // Kr of 709 ? , div64  1.575
-			Kb = 119; // Kb of 709 ? , div64  1.856
-			Kgu = 12; // Kgu of 709 ? , div64 0.187
-			Kgv = 30; // Kgv of 709 ? , div64 0.468
-		}
-		else if (Matrix == 2) // 2020 (ncl ?)
-		{
-			Kr = 94; // Kr of 2020 ? , div64  1.475
-			Kb = 120; // Kb of 2020 ? , div64  1.88
-			Kgu = 10; // Kgu of 2020 ? , div64 0.165
-			Kgv = 37; // Kgv of 2020 ? , div64 0.571
-		}
-		else
-			env->ThrowError("DecodeYV12toRGB: matrix %d not supported.", Matrix);
-
-
-
-	}
-
-	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env)
-	{
-		PVideoFrame dst = env->NewVideoFrame(vi);
-		VideoInfo vi_src = child->GetVideoInfo();
-		PVideoFrame src = child->GetFrame(n, env);
-
-		if (vi_src.ComponentSize() == 1)
-		{
-			Convert(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
-		}
-		else
-			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
-		return dst;
-	}
-};
-
+/*
+template void DecodeYV12toRGB::DecodeYV12<true, true>(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+template void DecodeYV12toRGB::DecodeYV12<false, true>(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+template void DecodeYV12toRGB::DecodeYV12<true, false>(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+template void DecodeYV12toRGB::DecodeYV12<false, false>(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+*/
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), env);
+	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(false), args[6].AsBool(true), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
@@ -504,7 +560,7 @@ const AVS_Linkage* AVS_linkage = 0;
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage* const vectors)
 {
 	AVS_linkage = vectors;
-	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i[gain]i[offset]i", Create_Decode, 0);
+	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i[gain]i[offset]i[cl]b[cs]b", Create_Decode, 0);
 
 	return "Decode YV12 to RGB sample plugin";
 }
