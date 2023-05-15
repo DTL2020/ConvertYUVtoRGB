@@ -71,6 +71,45 @@ public:
 		VideoInfo vi_src = child->GetVideoInfo();
 		PVideoFrame src = child->GetFrame(n, env);
 
+		DWORD dwOldProtY;
+		DWORD dwOldProtU;
+		DWORD dwOldProtV;
+		bool bRes;
+
+		if (!bCacheLoad)
+		{
+			auto srcp_Y = src->GetReadPtr(PLANAR_Y);
+			auto srcp_U = src->GetReadPtr(PLANAR_U);
+			auto srcp_V = src->GetReadPtr(PLANAR_V);
+
+			auto height = src->GetHeight(PLANAR_Y);
+			auto src_pitch_Y = src->GetPitch(PLANAR_Y);
+			auto src_pitch_U = src->GetPitch(PLANAR_U);
+			auto src_pitch_V = src->GetPitch(PLANAR_V);
+
+			bRes = VirtualProtect((LPVOID)srcp_Y, height * src_pitch_Y, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtY);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: WriteCombine on src Y not set. Error code %d", GetLastError());
+			}
+
+			bRes = VirtualProtect((LPVOID)srcp_U, (height / 2) * src_pitch_U, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtU);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: WriteCombine on src U not set. Error code %d", GetLastError());
+			}
+
+			bRes = VirtualProtect((LPVOID)srcp_V, (height / 2) * src_pitch_V, PAGE_READONLY | PAGE_WRITECOMBINE, &dwOldProtV);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: WriteCombine on src V not set. Error code %d", GetLastError());
+			}
+
+		}
+
 		if (vi_src.ComponentSize() == 1)
 		{
 
@@ -90,6 +129,43 @@ public:
 		}
 		else
 			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
+
+		if (!bCacheLoad)
+		{
+			auto srcp_Y = src->GetReadPtr(PLANAR_Y);
+			auto srcp_U = src->GetReadPtr(PLANAR_U);
+			auto srcp_V = src->GetReadPtr(PLANAR_V);
+
+			auto height = src->GetHeight(PLANAR_Y);
+			auto src_pitch_Y = src->GetPitch(PLANAR_Y);
+			auto src_pitch_U = src->GetPitch(PLANAR_U);
+			auto src_pitch_V = src->GetPitch(PLANAR_V);
+
+			bRes = VirtualProtect((LPVOID)srcp_Y, height * src_pitch_Y, dwOldProtY, NULL);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for Y src plane protection. Error code %d", GetLastError());
+			}
+
+			bRes = VirtualProtect((LPVOID)srcp_U, (height / 2) * src_pitch_U, dwOldProtU, NULL);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for U src plane protection. Error code %d", GetLastError());
+			}
+
+			bRes = VirtualProtect((LPVOID)srcp_V, (height / 2) * src_pitch_V, dwOldProtV, NULL);
+
+			if (bRes == false)
+			{
+				env->ThrowError("DecodeYV12toRGB: Can not restore old mem for V src plane protection. Error code %d", GetLastError());
+			}
+
+
+		}
+
+
 		return dst;
 	}
 
@@ -547,7 +623,7 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(false), args[6].AsBool(true), env);
+	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(true), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
