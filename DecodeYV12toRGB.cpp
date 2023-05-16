@@ -76,22 +76,20 @@ public:
 		DWORD dwOldProtV;
 		bool bRes;
 		
-		
 		if (vi_src.ComponentSize() == 1)
 		{
 
-				if (bCacheLoad && bCacheStore)
-					DecodeYV12<true, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+			if (bCacheLoad && bCacheStore)
+				DecodeYV12<true, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
-				if (!bCacheLoad && bCacheStore)
-					DecodeYV12<false, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+			if (!bCacheLoad && bCacheStore)
+				DecodeYV12<false, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
-				if (bCacheLoad && !bCacheStore)
-					DecodeYV12<true, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+			if (bCacheLoad && !bCacheStore)
+				DecodeYV12<true, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
-				if (!bCacheLoad && !bCacheStore)
-					DecodeYV12<false, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
-
+			if (!bCacheLoad && !bCacheStore)
+				DecodeYV12<false, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
 		}
 		else
@@ -135,7 +133,7 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 
 
 #pragma omp parallel for num_threads(threads)
-	for (int y = 0; y < height; y++)
+	for (uint64_t y = 0; y < height; y++)
 	{
 		unsigned char* l_dstp_R = dstp_R + y * dst_pitch_R;
 		unsigned char* l_dstp_G = dstp_G + y * dst_pitch_G;
@@ -158,7 +156,9 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 				const __m256i ymm_wKb = _mm256_set1_epi16(Kb); 
 
 				const __m256i ymm_wKgu = _mm256_set1_epi16(Kgu); 
-				const __m256i ymm_wKgv = _mm256_set1_epi16(Kgv); 
+				const __m256i ymm_wKgv = _mm256_set1_epi16(Kgv);
+
+				int UVpref = 0;
 
 				/*
 				// fill Y with 0 to 63 - debug
@@ -187,20 +187,23 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 					__m256i ymm2_U;
 					__m256i ymm3_V;
 
-					if (bCacheLoad)
+					if (!bCacheLoad)
 					{
-						ymm0_Y0 = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
-						ymm1_Y1 = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
-						ymm2_U = _mm256_load_si256((const __m256i*)(l_srcp_U));
-						ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
+						_mm_prefetch((const CHAR*)(l_srcp_Y + 64), _MM_HINT_NTA);
+						if (UVpref % 2 == 0)
+						{
+							_mm_prefetch((const CHAR*)(l_srcp_U + 64), _MM_HINT_NTA);
+							_mm_prefetch((const CHAR*)(l_srcp_V + 64), _MM_HINT_NTA);
+						}
+
+						UVpref++;
 					}
-					else
-					{
-						ymm0_Y0 = _mm256_stream_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
-						ymm1_Y1 = _mm256_stream_load_si256((const __m256i*)(l_srcp_Y + 32));
-						ymm2_U = _mm256_stream_load_si256((const __m256i*)(l_srcp_U));
-						ymm3_V = _mm256_stream_load_si256((const __m256i*)(l_srcp_V));
-					}
+
+					ymm0_Y0 = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
+					ymm1_Y1 = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
+					ymm2_U = _mm256_load_si256((const __m256i*)(l_srcp_U));
+					ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
+
 					
 					__m256i ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
 					__m256i ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
