@@ -80,32 +80,88 @@ public:
 		{
 
 			if (bCacheLoad && bCacheStore)
-				DecodeYV12<true, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+				DecodeYUV420<true, true, 8, 1>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
 			if (!bCacheLoad && bCacheStore)
-				DecodeYV12<false, true>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+				DecodeYUV420<false, true, 8, 1>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
 			if (bCacheLoad && !bCacheStore)
-				DecodeYV12<true, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+				DecodeYUV420<true, false, 8, 1>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
 			if (!bCacheLoad && !bCacheStore)
-				DecodeYV12<false, false>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+				DecodeYUV420<false, false, 8, 1>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
 
 		}
+		else if ((vi_src.ComponentSize() == 2) && (vi_src.BitsPerComponent() == 10))
+		{
+			if (bCacheLoad && bCacheStore)
+				DecodeYUV420<true, true, 10, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && bCacheStore)
+				DecodeYUV420<false, true, 10, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (bCacheLoad && !bCacheStore)
+				DecodeYUV420<true, false, 10, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && !bCacheStore)
+				DecodeYUV420<false, false, 10, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+		}
+		else if ((vi_src.ComponentSize() == 2) && (vi_src.BitsPerComponent() == 12))
+		{
+			if (bCacheLoad && bCacheStore)
+				DecodeYUV420<true, true, 12, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && bCacheStore)
+				DecodeYUV420<false, true, 12, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (bCacheLoad && !bCacheStore)
+				DecodeYUV420<true, false, 12, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && !bCacheStore)
+				DecodeYUV420<false, false, 12, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+		}
+		else if ((vi_src.ComponentSize() == 2) && (vi_src.BitsPerComponent() == 14))
+		{
+			if (bCacheLoad && bCacheStore)
+				DecodeYUV420<true, true, 14, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && bCacheStore)
+				DecodeYUV420<false, true, 14, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (bCacheLoad && !bCacheStore)
+				DecodeYUV420<true, false, 14, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && !bCacheStore)
+				DecodeYUV420<false, false, 14, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+		}
+		else if ((vi_src.ComponentSize() == 2) && (vi_src.BitsPerComponent() == 16))
+		{
+			if (bCacheLoad && bCacheStore)
+				DecodeYUV420<true, true, 16, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && bCacheStore)
+				DecodeYUV420<false, true, 16, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (bCacheLoad && !bCacheStore)
+				DecodeYUV420<true, false, 16, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+
+			if (!bCacheLoad && !bCacheStore)
+				DecodeYUV420<false, false, 16, 2>(dst, src, vi, vi_src, Kr, Kb, Kgu, Kgv, RGBgain, RGBoffset, threads, _cpuFlags);
+		}
 		else
-			env->ThrowError("DecodeYV12toRGB: Only 8bit input supported.");
+			env->ThrowError("DecodeYV12toRGB: Only 8bit and 10bit input supported.");
 
 		return dst;
 	}
 
-	template <bool bCacheLoad, bool bCacheStore>
-	void DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
+	template <bool bCacheLoad, bool bCacheStore, int bps, int cs>
+	void DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags);
 
 };
 
 
-template <bool bCacheLoad, bool bCacheStore>
-void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
+template <bool bCacheLoad, bool bCacheStore, int bps, int cs>
+void DecodeYV12toRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
 {
 	auto srcp_Y = src->GetReadPtr(PLANAR_Y);
 	auto srcp_U = src->GetReadPtr(PLANAR_U);
@@ -148,9 +204,13 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 
 			if (cpuFlags & CPUF_AVX2) // use AVX2
 			{
-				const int col64 = row_size_Y - (row_size_Y % 64); // load 64 Y samples and 
+				int col64;
+				if (cs == 1) // 8bit
+					col64 = row_size_Y - (row_size_Y % 64);
+				else // 10 to 16 bit
+					col64 = (row_size_Y / 2) - ((row_size_Y / 2) % 64);
 
-				const __m256i ymm_w128 = _mm256_set1_epi16(128);
+				const __m256i ymm_w_cbias = _mm256_set1_epi16(128);
 
 				const __m256i ymm_wKr = _mm256_set1_epi16(Kr); 
 				const __m256i ymm_wKb = _mm256_set1_epi16(Kb); 
@@ -160,13 +220,21 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 
 				int UVpref = 0;
 
-				/*
+				
 				// fill Y with 0 to 63 - debug
+				/*
 				for (int idx = 0; idx < 64; idx++)
 				{
-					l_srcp_Y[idx] = (unsigned char)idx;
+					l_srcp_Y[idx] = (unsigned int)idx;
 				}
-				
+				*/
+/*				unsigned short* lus_srcp_Y = (unsigned short*)l_srcp_Y;
+				for (int idx = 0; idx < 64; idx++)
+				{
+					lus_srcp_Y[idx] = (unsigned short)(idx * 4);
+				}
+	*/			
+				/*
 				// fill U with 0 to 32 - debug
 				for (int idx = 0; idx < 32; idx++)
 				{
@@ -179,74 +247,201 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 					l_srcp_V[idx] = 128;
 				}
 				*/
-
+/*				unsigned short* lus_srcp_U = (unsigned short*)l_srcp_U;
+				for (int idx = 0; idx < 32; idx++)
+				{
+					lus_srcp_U[idx] = (unsigned short)(idx * 4);
+				}
+*/				
+							   
 				for (int col = 0; col < col64; col += 64)
 				{
-					__m256i ymm0_Y0;
-					__m256i ymm1_Y1;
-					__m256i ymm2_U;
-					__m256i ymm3_V;
+					__m256i ymm_Y0_16l;
+					__m256i ymm_Y1_16l;
 
-					if (!bCacheLoad)
+					__m256i ymm_Y0_16h;
+					__m256i ymm_Y1_16h;
+
+					__m256i ymm_U0_16l;
+					__m256i ymm_V0_16l;
+
+					__m256i ymm_U0_16h;
+					__m256i ymm_V0_16h;
+
+					__m256i ymm_U1_16l;
+					__m256i ymm_V1_16l;
+
+					__m256i ymm_U1_16h;
+					__m256i ymm_V1_16h;
+
+
+					if (cs == 1)
 					{
-						_mm_prefetch((const CHAR*)(l_srcp_Y + 64), _MM_HINT_NTA);
-						if (UVpref % 2 == 0)
+
+						if (!bCacheLoad)
 						{
+							_mm_prefetch((const CHAR*)(l_srcp_Y + 64), _MM_HINT_NTA);
+							if (UVpref % 2 == 0)
+							{
+								_mm_prefetch((const CHAR*)(l_srcp_U + 64), _MM_HINT_NTA);
+								_mm_prefetch((const CHAR*)(l_srcp_V + 64), _MM_HINT_NTA);
+							}
+
+							UVpref++;
+						}
+
+						__m256i ymm0_Y0 = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
+						__m256i ymm1_Y1 = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
+						__m256i ymm2_U = _mm256_load_si256((const __m256i*)(l_srcp_U));
+						__m256i ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
+
+
+						ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
+						ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
+
+						ymm_Y0_16h = _mm256_unpackhi_epi8(ymm0_Y0, _mm256_setzero_si256());
+						ymm_Y1_16h = _mm256_unpackhi_epi8(ymm1_Y1, _mm256_setzero_si256());
+
+						__m256i ymm_U_dl = _mm256_unpacklo_epi8(ymm2_U, ymm2_U);
+						__m256i ymm_V_dl = _mm256_unpacklo_epi8(ymm3_V, ymm3_V);
+
+						__m256i ymm_U_dh = _mm256_unpackhi_epi8(ymm2_U, ymm2_U);
+						__m256i ymm_V_dh = _mm256_unpackhi_epi8(ymm3_V, ymm3_V);
+
+						__m256i ymm_U0 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x20);
+						__m256i ymm_V0 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x20);
+
+						__m256i ymm_U1 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x31);
+						__m256i ymm_V1 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x31);
+
+						ymm_U0_16l = _mm256_unpacklo_epi8(ymm_U0, _mm256_setzero_si256());
+						ymm_V0_16l = _mm256_unpacklo_epi8(ymm_V0, _mm256_setzero_si256());
+						
+						ymm_U0_16h = _mm256_unpackhi_epi8(ymm_U0, _mm256_setzero_si256());
+						ymm_V0_16h = _mm256_unpackhi_epi8(ymm_V0, _mm256_setzero_si256());
+
+						ymm_U1_16l = _mm256_unpacklo_epi8(ymm_U1, _mm256_setzero_si256());
+						ymm_V1_16l = _mm256_unpacklo_epi8(ymm_V1, _mm256_setzero_si256());
+
+						ymm_U1_16h = _mm256_unpackhi_epi8(ymm_U1, _mm256_setzero_si256());
+						ymm_V1_16h = _mm256_unpackhi_epi8(ymm_V1, _mm256_setzero_si256());
+
+					}
+					if (cs == 2)
+					{
+						if (!bCacheLoad)
+						{
+							_mm_prefetch((const CHAR*)(l_srcp_Y + 128), _MM_HINT_NTA);
+ 							_mm_prefetch((const CHAR*)(l_srcp_Y + 128 + 64), _MM_HINT_NTA); 
+
 							_mm_prefetch((const CHAR*)(l_srcp_U + 64), _MM_HINT_NTA);
 							_mm_prefetch((const CHAR*)(l_srcp_V + 64), _MM_HINT_NTA);
 						}
 
-						UVpref++;
+						__m256i ymm_Y0_l = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
+						__m256i ymm_Y0_h = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
+						__m256i ymm_Y1_l = _mm256_load_si256((const __m256i*)(l_srcp_Y + 64));
+						__m256i ymm_Y1_h = _mm256_load_si256((const __m256i*)(l_srcp_Y + 96));
+
+						__m256i ymm_U_l = _mm256_load_si256((const __m256i*)(l_srcp_U));
+						__m256i ymm_U_h = _mm256_load_si256((const __m256i*)(l_srcp_U + 32));
+						
+						__m256i ymm_V_l = _mm256_load_si256((const __m256i*)(l_srcp_V));
+						__m256i ymm_V_h = _mm256_load_si256((const __m256i*)(l_srcp_V + 32));
+
+						ymm_Y0_16l = _mm256_permute2x128_si256(ymm_Y0_l, ymm_Y0_h, 0x20);
+						ymm_Y0_16h = _mm256_permute2x128_si256(ymm_Y0_l, ymm_Y0_h, 0x31);
+
+						ymm_Y1_16l = _mm256_permute2x128_si256(ymm_Y1_l, ymm_Y1_h, 0x20);
+						ymm_Y1_16h = _mm256_permute2x128_si256(ymm_Y1_l, ymm_Y1_h, 0x31);
+
+						if (bps == 10)
+						{
+							ymm_Y0_16l = _mm256_srli_epi16(ymm_Y0_16l, 2);
+							ymm_Y1_16l = _mm256_srli_epi16(ymm_Y1_16l, 2);
+
+							ymm_Y0_16h = _mm256_srli_epi16(ymm_Y0_16h, 2);
+							ymm_Y1_16h = _mm256_srli_epi16(ymm_Y1_16h, 2);
+
+							ymm_U_l = _mm256_srli_epi16(ymm_U_l, 2);
+							ymm_U_h = _mm256_srli_epi16(ymm_U_h, 2);
+
+							ymm_V_l = _mm256_srli_epi16(ymm_V_l, 2);
+							ymm_V_h = _mm256_srli_epi16(ymm_V_h, 2);
+						}
+
+						if (bps == 12)
+						{
+							ymm_Y0_16l = _mm256_srli_epi16(ymm_Y0_16l, 4);
+							ymm_Y1_16l = _mm256_srli_epi16(ymm_Y1_16l, 4);
+
+							ymm_Y0_16h = _mm256_srli_epi16(ymm_Y0_16h, 4);
+							ymm_Y1_16h = _mm256_srli_epi16(ymm_Y1_16h, 4);
+
+							ymm_U_l = _mm256_srli_epi16(ymm_U_l, 4);
+							ymm_U_h = _mm256_srli_epi16(ymm_U_h, 4);
+
+							ymm_V_l = _mm256_srli_epi16(ymm_V_l, 4);
+							ymm_V_h = _mm256_srli_epi16(ymm_V_h, 4);
+						}
+
+						if (bps == 14)
+						{
+							ymm_Y0_16l = _mm256_srli_epi16(ymm_Y0_16l, 6);
+							ymm_Y1_16l = _mm256_srli_epi16(ymm_Y1_16l, 6);
+
+							ymm_Y0_16h = _mm256_srli_epi16(ymm_Y0_16h, 6);
+							ymm_Y1_16h = _mm256_srli_epi16(ymm_Y1_16h, 6);
+
+							ymm_U_l = _mm256_srli_epi16(ymm_U_l, 6);
+							ymm_U_h = _mm256_srli_epi16(ymm_U_h, 6);
+
+							ymm_V_l = _mm256_srli_epi16(ymm_V_l, 6);
+							ymm_V_h = _mm256_srli_epi16(ymm_V_h, 6);
+						}
+
+						if (bps == 16)
+						{
+							ymm_Y0_16l = _mm256_srli_epi16(ymm_Y0_16l, 8);
+							ymm_Y1_16l = _mm256_srli_epi16(ymm_Y1_16l, 8);
+
+							ymm_Y0_16h = _mm256_srli_epi16(ymm_Y0_16h, 8);
+							ymm_Y1_16h = _mm256_srli_epi16(ymm_Y1_16h, 8);
+
+							ymm_U_l = _mm256_srli_epi16(ymm_U_l, 8);
+							ymm_U_h = _mm256_srli_epi16(ymm_U_h, 8);
+
+							ymm_V_l = _mm256_srli_epi16(ymm_V_l, 8);
+							ymm_V_h = _mm256_srli_epi16(ymm_V_h, 8);
+						}
+
+
+						ymm_U0_16l = _mm256_unpacklo_epi16(ymm_U_l, ymm_U_l);
+						ymm_V0_16l = _mm256_unpacklo_epi16(ymm_V_l, ymm_V_l);
+
+						ymm_U1_16l = _mm256_unpacklo_epi16(ymm_U_h, ymm_U_h);
+						ymm_V1_16l = _mm256_unpacklo_epi16(ymm_V_h, ymm_V_h);
+
+						ymm_U0_16h = _mm256_unpackhi_epi16(ymm_U_l, ymm_U_l);
+						ymm_V0_16h = _mm256_unpackhi_epi16(ymm_V_l, ymm_V_l);
+
+						ymm_U1_16h = _mm256_unpackhi_epi16(ymm_U_h, ymm_U_h);
+						ymm_V1_16h = _mm256_unpackhi_epi16(ymm_V_h, ymm_V_h);
+
+
 					}
 
-					ymm0_Y0 = _mm256_load_si256((const __m256i*)l_srcp_Y); // should always load from 64-bit aligned start of row in AVS+ 3.7.3 (and later ?)
-					ymm1_Y1 = _mm256_load_si256((const __m256i*)(l_srcp_Y + 32));
-					ymm2_U = _mm256_load_si256((const __m256i*)(l_srcp_U));
-					ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
+					ymm_U0_16l = _mm256_sub_epi16(ymm_U0_16l, ymm_w_cbias); // superscalarity of 3 at IceLake/SkyLake
+					ymm_V0_16l = _mm256_sub_epi16(ymm_V0_16l, ymm_w_cbias);
 
-					
-					__m256i ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
-					__m256i ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
+					ymm_U0_16h = _mm256_sub_epi16(ymm_U0_16h, ymm_w_cbias);
+					ymm_V0_16h = _mm256_sub_epi16(ymm_V0_16h, ymm_w_cbias);
 
-					__m256i ymm_Y0_16h = _mm256_unpackhi_epi8(ymm0_Y0, _mm256_setzero_si256());
-					__m256i ymm_Y1_16h = _mm256_unpackhi_epi8(ymm1_Y1, _mm256_setzero_si256());
+					ymm_U1_16l = _mm256_sub_epi16(ymm_U1_16l, ymm_w_cbias);
+					ymm_V1_16l = _mm256_sub_epi16(ymm_V1_16l, ymm_w_cbias);
 
-					__m256i ymm_U_dl = _mm256_unpacklo_epi8(ymm2_U, ymm2_U);
-					__m256i ymm_V_dl = _mm256_unpacklo_epi8(ymm3_V, ymm3_V);
-
-					__m256i ymm_U_dh = _mm256_unpackhi_epi8(ymm2_U, ymm2_U);
-					__m256i ymm_V_dh = _mm256_unpackhi_epi8(ymm3_V, ymm3_V);
-
-					__m256i ymm_U0 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x20);
-					__m256i ymm_V0 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x20);
-
-					__m256i ymm_U1 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x31);
-					__m256i ymm_V1 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x31);
-
-					__m256i ymm_U0_16l = _mm256_unpacklo_epi8(ymm_U0, _mm256_setzero_si256());
-					__m256i ymm_V0_16l = _mm256_unpacklo_epi8(ymm_V0, _mm256_setzero_si256());
-
-					__m256i ymm_U0_16h = _mm256_unpackhi_epi8(ymm_U0, _mm256_setzero_si256());
-					__m256i ymm_V0_16h = _mm256_unpackhi_epi8(ymm_V0, _mm256_setzero_si256());
-
-					__m256i ymm_U1_16l = _mm256_unpacklo_epi8(ymm_U1, _mm256_setzero_si256());
-					__m256i ymm_V1_16l = _mm256_unpacklo_epi8(ymm_V1, _mm256_setzero_si256());
-
-					__m256i ymm_U1_16h = _mm256_unpackhi_epi8(ymm_U1, _mm256_setzero_si256());
-					__m256i ymm_V1_16h = _mm256_unpackhi_epi8(ymm_V1, _mm256_setzero_si256());
-
-
-					ymm_U0_16l = _mm256_sub_epi16(ymm_U0_16l, ymm_w128); // superscalarity of 3 at IceLake/SkyLake
-					ymm_V0_16l = _mm256_sub_epi16(ymm_V0_16l, ymm_w128);
-
-					ymm_U0_16h = _mm256_sub_epi16(ymm_U0_16h, ymm_w128);
-					ymm_V0_16h = _mm256_sub_epi16(ymm_V0_16h, ymm_w128);
-
-					ymm_U1_16l = _mm256_sub_epi16(ymm_U1_16l, ymm_w128);
-					ymm_V1_16l = _mm256_sub_epi16(ymm_V1_16l, ymm_w128);
-
-					ymm_U1_16h = _mm256_sub_epi16(ymm_U1_16h, ymm_w128);
-					ymm_V1_16h = _mm256_sub_epi16(ymm_V1_16h, ymm_w128);
+					ymm_U1_16h = _mm256_sub_epi16(ymm_U1_16h, ymm_w_cbias);
+					ymm_V1_16h = _mm256_sub_epi16(ymm_V1_16h, ymm_w_cbias);
 
 
 					__m256i ymm_V_dl16l_addR = _mm256_mullo_epi16(ymm_V0_16l, ymm_wKr);
@@ -532,10 +727,18 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 						_mm256_stream_si256((__m256i*)(l_dstp_BGRA + 224), ymm_BGRA_56_63);
 					}
 
-
-					l_srcp_Y += 64; // in bytes
-					l_srcp_U += 32;
-					l_srcp_V += 32;
+					if (cs == 1)
+					{
+						l_srcp_Y += 64; // in bytes
+						l_srcp_U += 32;
+						l_srcp_V += 32;
+					}
+					else
+					{
+						l_srcp_Y += 128; // in bytes
+						l_srcp_U += 64;
+						l_srcp_V += 64;
+					}
 
 					l_dstp_R += 64;
 					l_dstp_G += 64;
@@ -557,7 +760,7 @@ void DecodeYV12toRGB::DecodeYV12(PVideoFrame dst, PVideoFrame src, VideoInfo vi_
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(true), env);
+	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(false), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
