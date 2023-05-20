@@ -4,7 +4,7 @@
 
 #define RGB_DIV_SHIFT 6
 
-class DecodeYV12toRGB : public GenericVideoFilter
+class DecodeYUVtoRGB : public GenericVideoFilter
 {
 	int threads;
 	int _cpuFlags;
@@ -23,7 +23,7 @@ class DecodeYV12toRGB : public GenericVideoFilter
 	bool bCacheStore;
 
 public:
-	DecodeYV12toRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, IScriptEnvironment* env) : GenericVideoFilter(_child),
+	DecodeYUVtoRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, IScriptEnvironment* env) : GenericVideoFilter(_child),
 		threads(threads_),
 		Matrix(_matrix),
 		RGBgain((short)_gain),
@@ -37,7 +37,7 @@ public:
 
 		if (!(_cpuFlags & CPUF_AVX2))
 		{
-			env->ThrowError("DecodeYV12toRGB: Only AVX2 and later SIMD co-processor supported.");
+			env->ThrowError("DecodeYUVtoRGB: Only AVX2 and later SIMD co-processor supported.");
 		}
 
 		if (Matrix == 0) // 601
@@ -62,7 +62,7 @@ public:
 			Kgv = 37; // Kgv of 2020 ? , div64 0.571
 		}
 		else
-			env->ThrowError("DecodeYV12toRGB: matrix %d not supported.", Matrix);
+			env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
 	}
 
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env)
@@ -161,7 +161,7 @@ public:
 
 
 template <bool bCacheLoad, bool bCacheStore, int bps, int cs>
-void DecodeYV12toRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
+void DecodeYUVtoRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi_dst, VideoInfo vi_src, short Kr, short Kb, short Kgu, short Kgv, short RGBg, short RGBo, int threads, int cpuFlags)
 {
 	auto srcp_Y = src->GetReadPtr(PLANAR_Y);
 	auto srcp_U = src->GetReadPtr(PLANAR_U);
@@ -760,7 +760,7 @@ void DecodeYV12toRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo v
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYV12toRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(false), env);
+	return new DecodeYUVtoRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(false), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
@@ -768,9 +768,9 @@ const AVS_Linkage* AVS_linkage = 0;
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage* const vectors)
 {
 	AVS_linkage = vectors;
-	env->AddFunction("DecodeYV12toRGB", "c[threads]i[matrix]i[gain]i[offset]i[cl]b[cs]b", Create_Decode, 0);
+	env->AddFunction("DecodeYUVtoRGB", "c[threads]i[matrix]i[gain]i[offset]i[cl]b[cs]b", Create_Decode, 0);
 
-	return "Decode YV12 to RGB sample plugin";
+	return "Decode YUV to RGB sample plugin";
 }
 
 
