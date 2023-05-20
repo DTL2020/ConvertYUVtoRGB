@@ -5,7 +5,7 @@ AVX2 (and AVX512 in future) example of single-pass YUV to RGB32 decoder (current
 
 Run several times faster at single thread in compare with AVS+ 3.7.3-times ConvertToRGB32() (looks like UV upscale + dematrix in 2 separate passes).
 
-Curerntly only 4:2:0 planar input. YV12 (YUV420P8), YUV420P10, YUV420P12, YUV420P14, YUV420P16 formats (all truncated to 8bit YV12 before processing). Processing intermediates only 16bit so output precision is less in compare with ConvertToRGB32 (using 32bit intermediates). 
+Currently only 4:2:0 planar input. YV12 (YUV420P8), YUV420P10, YUV420P12, YUV420P14, YUV420P16 formats (all truncated to 8bit YV12 before processing). Processing intermediates only 16bit so output precision is less in compare with ConvertToRGB32 (using 32bit intermediates). 
 
 Usage:
 
