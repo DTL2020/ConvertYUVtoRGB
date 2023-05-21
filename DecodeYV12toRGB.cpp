@@ -205,11 +205,25 @@ void DecodeYUVtoRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi
 			if (cpuFlags & CPUF_AVX2) // use AVX2
 			{
 				int col64;
+				int row_size_Ysamples;
 				if (cs == 1) // 8bit
+				{
 					col64 = row_size_Y - (row_size_Y % 64);
+					row_size_Ysamples = row_size_Y;
+				}
 				else // 10 to 16 bit
+				{
 					col64 = (row_size_Y / 2) - ((row_size_Y / 2) % 64);
+					row_size_Ysamples = row_size_Y / 2;
+				}
 
+
+/*				int row_proc_size;
+				if (cs == 1) // 8bit
+					row_proc_size = row_size_Y;
+				else // 10 to 16 bit
+					row_proc_size = (row_size_Y / 2); 
+					*/
 				const __m256i ymm_w_cbias = _mm256_set1_epi16(128);
 
 				const __m256i ymm_wKr = _mm256_set1_epi16(Kr); 
@@ -748,10 +762,101 @@ void DecodeYUVtoRGB::DecodeYUV420(PVideoFrame dst, PVideoFrame src, VideoInfo vi
 				}
 
 				// last cols
-				for (int col = col64; col < row_size_Y; ++col)
+				int iUVadv = 0;
+				for (int col = col64; col < row_size_Ysamples; ++col)
 				{
+					int iY;
+					int iU;
+					int iV;
+
+					if (cs == 1)
+					{
+						iY = *l_srcp_Y;
+						iU = *l_srcp_U - 128;
+						iV = *l_srcp_V - 128;
+					}
+					else
+					{
+						iY = (int)*((unsigned short*)l_srcp_Y);
+						iU = (int)*((unsigned short*)l_srcp_U);
+						iV = (int)*((unsigned short*)l_srcp_V);
+
+						if (bps == 10)
+						{
+							iY = iY >> 2;
+							iU = iU >> 2;
+							iV = iV >> 2;
+						}
+
+						if (bps == 12)
+						{
+							iY = iY >> 4;
+							iU = iU >> 4;
+							iV = iV >> 4;
+						}
+
+						if (bps == 14)
+						{
+							iY = iY >> 6;
+							iU = iU >> 6;
+							iV = iV >> 6;
+						}
+
+						if (bps == 16)
+						{
+							iY = iY >> 8;
+							iU = iU >> 8;
+							iV = iV >> 8;
+						}
+
+						iU = iU - 128;
+						iV = iV - 128;
+
+					}
+
+					int iR = iY + ((iV * Kr) >> 6);
+					int iB = iY + ((iU * Kb) >> 6);
+					int iG = iY - ((iU * Kgu) >> 6) - ((iV * Kgv) >> 6);
+
+					iR = ((iR + RGBo) * RGBg) >> RGB_DIV_SHIFT;
+					iG = ((iG + RGBo) * RGBg) >> RGB_DIV_SHIFT;
+					iB = ((iB + RGBo) * RGBg) >> RGB_DIV_SHIFT;
+
+					if (iR < 0) iR = 0; if (iR > 255) iR = 255;
+					if (iG < 0) iG = 0; if (iG > 255) iG = 255;
+					if (iB < 0) iB = 0; if (iB > 255) iB = 255;
+
+					int iBGRA = 0 | (unsigned char)iR << 16 | (unsigned char)iG << 8 | (unsigned char)iB;
+					*(int*)(l_dstp_BGRA) = iBGRA;
+
+
+					if (cs == 1)
+					{
+						l_srcp_Y += 1; // in bytes
+						if (iUVadv % 2 != 0)
+						{
+							l_srcp_U += 1;
+							l_srcp_V += 1;
+						}
+					}
+					else
+					{
+						l_srcp_Y += 2; // in bytes
+						if (iUVadv % 2 != 0)
+						{
+							l_srcp_U += 2;
+							l_srcp_V += 2;
+						}
+					}
+
+					iUVadv++;
+					l_dstp_BGRA += 4;
+
 				}
+				
 			}
+
+			
 	}
 
 	if (!bCacheStore)
