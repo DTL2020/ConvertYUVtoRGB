@@ -1069,32 +1069,34 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 			int UVpref = 0;
 
 
-			// fill Y with 0 to 63 - debug
+			// fill Y with 0 to 32 - debug
 			
-			for (int idx = 0; idx < 32; idx++)
+/*			for (int idx = 0; idx < 128; idx++)
 			{
 				l_srcp_Y[idx] = (unsigned int)idx;
 			}
-			
+	*/		
 			/*				unsigned short* lus_srcp_Y = (unsigned short*)l_srcp_Y;
 							for (int idx = 0; idx < 64; idx++)
 							{
 								lus_srcp_Y[idx] = (unsigned short)(idx * 4);
 							}
 				*/
-				/*
-				// fill U with 0 to 32 - debug
-				for (int idx = 0; idx < 32; idx++)
+				
+				// fill U with 0 to 16 - debug
+		/*		for (int idx = 0; idx < 64; idx++)
 				{
-					l_srcp_U[idx] = (unsigned char)idx;
+					l_srcp_U[idx] = (unsigned char)(idx + 128);
+					l_srcp_V[idx] = (unsigned char)(idx + 128);
 				}
-
+			*/	
 				// fill V with //0 to 32 - debug
-				for (int idx = 0; idx < 32; idx++)
+/*				for (int idx = 0; idx < 16; idx++)
 				{
+					l_srcp_U[idx] = 128;
 					l_srcp_V[idx] = 128;
 				}
-				*/
+	*/			
 				/*				unsigned short* lus_srcp_U = (unsigned short*)l_srcp_U;
 								for (int idx = 0; idx < 32; idx++)
 								{
@@ -1153,59 +1155,38 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 					ymm_Y1_32l = _mm256_unpacklo_epi16(ymm_Y_16h, _mm256_setzero_si256());
 					ymm_Y1_32h = _mm256_unpackhi_epi16(ymm_Y_16h, _mm256_setzero_si256());
 
-
 					__m128i xmm_U = _mm_load_si128((const __m128i*)(l_srcp_U));
-					__m256i ymm_U = _mm256_permute4x64_epi64(_mm256_castsi128_si256(xmm_U), 0);
+					__m256i ymm_U = _mm256_permute4x64_epi64(_mm256_castsi128_si256(xmm_U), 0x50);
 					
 					__m128i xmm_V = _mm_load_si128((const __m128i*)(l_srcp_V));
-					__m256i ymm3_V = _mm256_load_si256((const __m256i*)(l_srcp_V));
-					__m256i ymm_V = _mm256_permute4x64_epi64(_mm256_castsi128_si256(xmm_V), 0);
+					__m256i ymm_V = _mm256_permute4x64_epi64(_mm256_castsi128_si256(xmm_V), 0x50);
 
-					ymm_U0_32l = _mm256_unpacklo_epi8(ymm_U, _mm256_setzero_si256());
-					ymm_V0_32l = _mm256_unpacklo_epi8(ymm_V, _mm256_setzero_si256());
+					__m256i ymm_U_8dl = _mm256_unpacklo_epi8(ymm_U, ymm_U);
+					__m256i ymm_U_8dh = _mm256_unpackhi_epi8(ymm_U, ymm_U);
 
-					ymm_U0_32h = _mm256_unpackhi_epi8(ymm_U, _mm256_setzero_si256());
-					ymm_V0_32h = _mm256_unpackhi_epi8(ymm_V, _mm256_setzero_si256());
+					__m256i ymm_U_16l = _mm256_unpacklo_epi8(ymm_U_8dl, _mm256_setzero_si256());
+					__m256i ymm_U_16h = _mm256_unpackhi_epi8(ymm_U_8dl, _mm256_setzero_si256());
 
-					ymm_U1_32l = _mm256_unpacklo_epi8(ymm_U, _mm256_setzero_si256());
-					ymm_V1_32l = _mm256_unpacklo_epi8(ymm_V, _mm256_setzero_si256());
+					__m256i ymm_V_8dl = _mm256_unpacklo_epi8(ymm_V, ymm_V);
+					__m256i ymm_V_8dh = _mm256_unpackhi_epi8(ymm_V, ymm_V);
 
-					ymm_U1_32h = _mm256_unpackhi_epi8(ymm_U, _mm256_setzero_si256());
-					ymm_V1_32h = _mm256_unpackhi_epi8(ymm_V, _mm256_setzero_si256());
-
-					
+					__m256i ymm_V_16l = _mm256_unpacklo_epi8(ymm_V_8dl, _mm256_setzero_si256());
+					__m256i ymm_V_16h = _mm256_unpackhi_epi8(ymm_V_8dl, _mm256_setzero_si256());
 
 
-/*					ymm_Y0_16l = _mm256_unpacklo_epi8(ymm0_Y0, _mm256_setzero_si256());
-					ymm_Y1_16l = _mm256_unpacklo_epi8(ymm1_Y1, _mm256_setzero_si256());
+					ymm_U0_32l = _mm256_unpacklo_epi16(ymm_U_16l, _mm256_setzero_si256());
+					ymm_V0_32l = _mm256_unpacklo_epi16(ymm_V_16l, _mm256_setzero_si256());
 
-					ymm_Y0_16h = _mm256_unpackhi_epi8(ymm0_Y0, _mm256_setzero_si256());
-					ymm_Y1_16h = _mm256_unpackhi_epi8(ymm1_Y1, _mm256_setzero_si256());
+					ymm_U0_32h = _mm256_unpackhi_epi16(ymm_U_16l, _mm256_setzero_si256());
+					ymm_V0_32h = _mm256_unpackhi_epi16(ymm_V_16l, _mm256_setzero_si256());
 
-					__m256i ymm_U_dl = _mm256_unpacklo_epi8(ymm2_U, ymm2_U);
-					__m256i ymm_V_dl = _mm256_unpacklo_epi8(ymm3_V, ymm3_V);
+					ymm_U1_32l = _mm256_unpacklo_epi16(ymm_U_16h, _mm256_setzero_si256());
+					ymm_V1_32l = _mm256_unpacklo_epi16(ymm_V_16h, _mm256_setzero_si256());
 
-					__m256i ymm_U_dh = _mm256_unpackhi_epi8(ymm2_U, ymm2_U);
-					__m256i ymm_V_dh = _mm256_unpackhi_epi8(ymm3_V, ymm3_V);
+					ymm_U1_32h = _mm256_unpackhi_epi16(ymm_U_16h, _mm256_setzero_si256());
+					ymm_V1_32h = _mm256_unpackhi_epi16(ymm_V_16h, _mm256_setzero_si256());
 
-					__m256i ymm_U0 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x20);
-					__m256i ymm_V0 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x20);
 
-					__m256i ymm_U1 = _mm256_permute2x128_si256(ymm_U_dl, ymm_U_dh, 0x31);
-					__m256i ymm_V1 = _mm256_permute2x128_si256(ymm_V_dl, ymm_V_dh, 0x31);
-
-					ymm_U0_16l = _mm256_unpacklo_epi8(ymm_U0, _mm256_setzero_si256());
-					ymm_V0_16l = _mm256_unpacklo_epi8(ymm_V0, _mm256_setzero_si256());
-
-					ymm_U0_16h = _mm256_unpackhi_epi8(ymm_U0, _mm256_setzero_si256());
-					ymm_V0_16h = _mm256_unpackhi_epi8(ymm_V0, _mm256_setzero_si256());
-
-					ymm_U1_16l = _mm256_unpacklo_epi8(ymm_U1, _mm256_setzero_si256());
-					ymm_V1_16l = _mm256_unpacklo_epi8(ymm_V1, _mm256_setzero_si256());
-
-					ymm_U1_16h = _mm256_unpackhi_epi8(ymm_U1, _mm256_setzero_si256());
-					ymm_V1_16h = _mm256_unpackhi_epi8(ymm_V1, _mm256_setzero_si256());
-					*/
 				}
 /*				if (cs == 2)
 				{
@@ -1400,11 +1381,11 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 				ymm_G_0_32l = _mm256_sub_epi32(ymm_G_0_32l, ymm_U_dl32l_subG);
 				ymm_G_0_32h = _mm256_sub_epi32(ymm_G_0_32h, ymm_U_dl32h_subG);
 
-				__m256i ymm_G_1_32l = _mm256_sub_epi16(ymm_Y1_32l, ymm_V_dh32l_subG);
-				__m256i ymm_G_1_32h = _mm256_sub_epi16(ymm_Y1_32h, ymm_V_dh32h_subG);
+				__m256i ymm_G_1_32l = _mm256_sub_epi32(ymm_Y1_32l, ymm_V_dh32l_subG);
+				__m256i ymm_G_1_32h = _mm256_sub_epi32(ymm_Y1_32h, ymm_V_dh32h_subG);
 
-				ymm_G_1_32l = _mm256_sub_epi16(ymm_G_1_32l, ymm_U_dh32l_subG);
-				ymm_G_1_32h = _mm256_sub_epi16(ymm_G_1_32h, ymm_U_dh32h_subG);
+				ymm_G_1_32l = _mm256_sub_epi32(ymm_G_1_32l, ymm_U_dh32l_subG);
+				ymm_G_1_32h = _mm256_sub_epi32(ymm_G_1_32h, ymm_U_dh32h_subG);
 
 				// RGB post processing with gain and offset 
 				const __m256i ymm_RGBoffset = _mm256_set1_epi32(RGBo);
