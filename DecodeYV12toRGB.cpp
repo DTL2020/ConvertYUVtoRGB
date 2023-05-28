@@ -244,15 +244,23 @@ public:
 			env->ThrowError("DecodeYUVtoRGB: Intermediate bits precision may be only 16 or 32.");
 		}
 
+		VideoInfo vi_src = _child->GetVideoInfo();
+		
+		if (!vi_src.IsYUV())
+		{
+			env->ThrowError("DecodeYUVtoRGB: Only YUV input supported.");
+		}
+
+
 		if (iImmBits == 16)
 		{
 
 			if (Matrix == 0) // 601
 			{
-				Kr = 90; // Kr of 601 ? , div64  1.402
-				Kb = 113; // Kb of 601 ? , div64  1.772
-				Kgu = 22; // Kgu of 601 ? , div64 0.344
-				Kgv = 46; // Kgv of 601 ? , div64 0.714 */
+				Kr = 88; // Kr of 601 ? , div64  1.402/1.02283
+				Kb = 111; // Kb of 601 ? , div64  1.772/1.02283
+				Kgu = 22; // Kgu of 601 ? , div64 0.344136/1.02283
+				Kgv = 45; // Kgv of 601 ? , div64 0.714136/1.02283 */
 			}
 			else if (Matrix == 1) // 709
 			{
@@ -263,10 +271,10 @@ public:
 			}
 			else if (Matrix == 2) // 2020 (ncl ?)
 			{
-				Kr = 94; // Kr of 2020 ? , div64  1.475
-				Kb = 120; // Kb of 2020 ? , div64  1.88
-				Kgu = 10; // Kgu of 2020 ? , div64 0.165
-				Kgv = 37; // Kgv of 2020 ? , div64 0.571
+				Kr = 92; // Kr of 2020 ? , div64  1.4747/1.02283
+				Kb = 118; // Kb of 2020 ? , div64  1.8814/1.02283
+				Kgu = 10; // Kgu of 2020 ? , div64 0.164553/1.02283
+				Kgv = 36; // Kgv of 2020 ? , div64 0.571392/1.02283
 			}
 			else
 				env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
@@ -277,10 +285,10 @@ public:
 
 			if (Matrix == 0) // 601
 			{
-				Kr = 11485; // Kr of 601 ? , div8192  1.402
-				Kb = 14516; // Kb of 601 ? , div8192  1.772
-				Kgu = 2819; // Kgu of 601 ? , div8192 0.344136
-				Kgv = 5850; // Kgv of 601 ? , div8192 0.714136 */
+				Kr = 11229; // Kr of 601 ? , div8192  1.402/1.02283
+				Kb = 14192; // Kb of 601 ? , div8192  1.772/1.02283
+				Kgu = 2756; // Kgu of 601 ? , div8192 0.344136/1.02283
+				Kgv = 5720; // Kgv of 601 ? , div8192 0.714136/1.02283 */
 			}
 			else if (Matrix == 1) // 709
 			{
@@ -291,10 +299,10 @@ public:
 			}
 			else if (Matrix == 2) // 2020 (ncl ?)
 			{
-				Kr = 12081; // Kr of 2020 ? , div8192  1.4747
-				Kb = 15412; // Kb of 2020 ? , div8192  1.8814
-				Kgu = 1348; // Kgu of 2020 ? , div8192 0.164553
-				Kgv = 4681; // Kgv of 2020 ? , div8192 0.571392
+				Kr = 11811; // Kr of 2020 ? , div8192  1.4747/1.02283
+				Kb = 15068; // Kb of 2020 ? , div8192  1.8814/1.02283
+				Kgu = 1318; // Kgu of 2020 ? , div8192 0.164553/1.02283
+				Kgv = 4576; // Kgv of 2020 ? , div8192 0.571392/1.02283
 			}
 			else
 				env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
@@ -307,11 +315,6 @@ public:
 		PVideoFrame dst = env->NewVideoFrame(vi);
 		VideoInfo vi_src = child->GetVideoInfo();
 		PVideoFrame src = child->GetFrame(n, env);
-
-		DWORD dwOldProtY;
-		DWORD dwOldProtU;
-		DWORD dwOldProtV;
-		bool bRes;
 
 		if (iImmBits == 16)
 		{
