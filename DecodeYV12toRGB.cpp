@@ -7,6 +7,9 @@
 #define RGB_DIV_SHIFT 6
 #define RGB_DIV_SHIFT_32 13
 
+#define RND_16 32 // 1<<3 ?
+#define RND_32 4096 // 1<<12 ?
+
 typedef enum ColorRange_e {
 	AVS_RANGE_FULL = 0,
 	AVS_RANGE_LIMITED = 1
@@ -546,6 +549,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 					row_proc_size = (row_size_Y / 2); 
 					*/
 				__m256i ymm_w_cbias = _mm256_set1_epi16(128);
+				__m256i ymm_w_rounder = _mm256_set1_epi16(RND_16);
 
 				__m256i ymm_wKr = _mm256_set1_epi16(Kr); 
 				__m256i ymm_wKb = _mm256_set1_epi16(Kb); 
@@ -792,6 +796,19 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 					__m256i ymm_U_dh16l_addB = _mm256_mullo_epi16(ymm_U1_16l, ymm_wKb);
 					__m256i ymm_U_dh16h_addB = _mm256_mullo_epi16(ymm_U1_16h, ymm_wKb);
 
+					ymm_V_dl16l_addR = _mm256_add_epi16(ymm_V_dl16l_addR, ymm_w_rounder);
+					ymm_V_dl16h_addR = _mm256_add_epi16(ymm_V_dl16h_addR, ymm_w_rounder);
+
+					ymm_V_dh16l_addR = _mm256_add_epi16(ymm_V_dh16l_addR, ymm_w_rounder);
+					ymm_V_dh16h_addR = _mm256_add_epi16(ymm_V_dh16h_addR, ymm_w_rounder);
+
+					ymm_U_dl16l_addB = _mm256_add_epi16(ymm_U_dl16l_addB, ymm_w_rounder);
+					ymm_U_dl16h_addB = _mm256_add_epi16(ymm_U_dl16h_addB, ymm_w_rounder);
+
+					ymm_U_dh16l_addB = _mm256_add_epi16(ymm_U_dh16l_addB, ymm_w_rounder);
+					ymm_U_dh16h_addB = _mm256_add_epi16(ymm_U_dh16h_addB, ymm_w_rounder);
+
+
 					ymm_V_dl16l_addR = _mm256_srai_epi16(ymm_V_dl16l_addR, 6);
 					ymm_V_dl16h_addR = _mm256_srai_epi16(ymm_V_dl16h_addR, 6);
 
@@ -833,6 +850,18 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					__m256i ymm_U_dh16l_subG = _mm256_mullo_epi16(ymm_U1_16l, ymm_wKgu);
 					__m256i ymm_U_dh16h_subG = _mm256_mullo_epi16(ymm_U1_16h, ymm_wKgu);
+
+					ymm_V_dl16l_subG = _mm256_add_epi16(ymm_V_dl16l_subG, ymm_w_rounder);
+					ymm_V_dl16h_subG = _mm256_add_epi16(ymm_V_dl16h_subG, ymm_w_rounder);
+
+					ymm_V_dh16l_subG = _mm256_add_epi16(ymm_V_dh16l_subG, ymm_w_rounder);
+					ymm_V_dh16h_subG = _mm256_add_epi16(ymm_V_dh16h_subG, ymm_w_rounder);
+
+					ymm_U_dl16l_subG = _mm256_add_epi16(ymm_U_dl16l_subG, ymm_w_rounder);
+					ymm_U_dl16h_subG = _mm256_add_epi16(ymm_U_dl16h_subG, ymm_w_rounder);
+
+					ymm_U_dh16l_subG = _mm256_add_epi16(ymm_U_dh16l_subG, ymm_w_rounder);
+					ymm_U_dh16h_subG = _mm256_add_epi16(ymm_U_dh16h_subG, ymm_w_rounder);
 
 
 					ymm_V_dl16l_subG = _mm256_srai_epi16(ymm_V_dl16l_subG, 6);
@@ -895,6 +924,22 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 					ymm_B_0_16h = _mm256_mullo_epi16(ymm_B_0_16h, ymm_RGBgain);
 					ymm_B_1_16l = _mm256_mullo_epi16(ymm_B_1_16l, ymm_RGBgain);
 					ymm_B_1_16h = _mm256_mullo_epi16(ymm_B_1_16h, ymm_RGBgain);
+
+
+					ymm_R_0_16l = _mm256_add_epi16(ymm_R_0_16l, ymm_w_rounder);
+					ymm_R_0_16h = _mm256_add_epi16(ymm_R_0_16h, ymm_w_rounder);
+					ymm_R_1_16l = _mm256_add_epi16(ymm_R_1_16l, ymm_w_rounder);
+					ymm_R_1_16h = _mm256_add_epi16(ymm_R_1_16h, ymm_w_rounder);
+
+					ymm_G_0_16l = _mm256_add_epi16(ymm_G_0_16l, ymm_w_rounder);
+					ymm_G_0_16h = _mm256_add_epi16(ymm_G_0_16h, ymm_w_rounder);
+					ymm_G_1_16l = _mm256_add_epi16(ymm_G_1_16l, ymm_w_rounder);
+					ymm_G_1_16h = _mm256_add_epi16(ymm_G_1_16h, ymm_w_rounder);
+
+					ymm_B_0_16l = _mm256_add_epi16(ymm_B_0_16l, ymm_w_rounder);
+					ymm_B_0_16h = _mm256_add_epi16(ymm_B_0_16h, ymm_w_rounder);
+					ymm_B_1_16l = _mm256_add_epi16(ymm_B_1_16l, ymm_w_rounder);
+					ymm_B_1_16h = _mm256_add_epi16(ymm_B_1_16h, ymm_w_rounder);
 
 
 					ymm_R_0_16l = _mm256_srai_epi16(ymm_R_0_16l, RGB_DIV_SHIFT);
@@ -1135,13 +1180,13 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					}
 
-					int iR = iY + ((iV * Kr) >> 6);
-					int iB = iY + ((iU * Kb) >> 6);
-					int iG = iY - ((iU * Kgu) >> 6) - ((iV * Kgv) >> 6);
+					int iR = iY + (((iV * Kr) + RND_16) >> 6);
+					int iB = iY + (((iU * Kb) + RND_16) >> 6);
+					int iG = iY - (((iU * Kgu) + RND_16) >> 6) - (((iV * Kgv) + RND_16) >> 6);
 
-					iR = ((iR + RGBo) * RGBg) >> RGB_DIV_SHIFT;
-					iG = ((iG + RGBo) * RGBg) >> RGB_DIV_SHIFT;
-					iB = ((iB + RGBo) * RGBg) >> RGB_DIV_SHIFT;
+					iR = (((iR + RGBo) * RGBg) + RND_16) >> RGB_DIV_SHIFT;
+					iG = (((iG + RGBo) * RGBg) + RND_16) >> RGB_DIV_SHIFT;
+					iB = (((iB + RGBo) * RGBg) + RND_16) >> RGB_DIV_SHIFT;
 
 					if (iR < 0) iR = 0; if (iR > 255) iR = 255;
 					if (iG < 0) iG = 0; if (iG > 255) iG = 255;
@@ -1250,6 +1295,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 								row_proc_size = (row_size_Y / 2);
 								*/
 			__m256i ymm_dw_cbias = _mm256_set1_epi32(128);
+			__m256i ymm_dw_rounder = _mm256_set1_epi32(RND_32);
 
 			__m256i ymm_dwKr = _mm256_set1_epi32(Kr);
 			__m256i ymm_dwKb = _mm256_set1_epi32(Kb);
@@ -1509,12 +1555,25 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 				__m256i ymm_U_dh32l_addB = _mm256_mullo_epi32(ymm_U1_32l, ymm_dwKb);
 				__m256i ymm_U_dh32h_addB = _mm256_mullo_epi32(ymm_U1_32h, ymm_dwKb);
 
+
+				ymm_V_dl32l_addR = _mm256_add_epi32(ymm_V_dl32l_addR, ymm_dw_rounder);
+				ymm_V_dl32h_addR = _mm256_add_epi32(ymm_V_dl32h_addR, ymm_dw_rounder);
+
+				ymm_V_dh32l_addR = _mm256_add_epi32(ymm_V_dh32l_addR, ymm_dw_rounder);
+				ymm_V_dh32h_addR = _mm256_add_epi32(ymm_V_dh32h_addR, ymm_dw_rounder);
+
+				ymm_U_dl32l_addB = _mm256_add_epi32(ymm_U_dl32l_addB, ymm_dw_rounder);
+				ymm_U_dl32h_addB = _mm256_add_epi32(ymm_U_dl32h_addB, ymm_dw_rounder);
+
+				ymm_U_dh32l_addB = _mm256_add_epi32(ymm_U_dh32l_addB, ymm_dw_rounder);
+				ymm_U_dh32h_addB = _mm256_add_epi32(ymm_U_dh32h_addB, ymm_dw_rounder);
+
+
 				ymm_V_dl32l_addR = _mm256_srai_epi32(ymm_V_dl32l_addR, 13);
 				ymm_V_dl32h_addR = _mm256_srai_epi32(ymm_V_dl32h_addR, 13);
 
 				ymm_V_dh32l_addR = _mm256_srai_epi32(ymm_V_dh32l_addR, 13);
 				ymm_V_dh32h_addR = _mm256_srai_epi32(ymm_V_dh32h_addR, 13);
-
 
 				ymm_U_dl32l_addB = _mm256_srai_epi32(ymm_U_dl32l_addB, 13);
 				ymm_U_dl32h_addB = _mm256_srai_epi32(ymm_U_dl32h_addB, 13);
@@ -1552,12 +1611,24 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 				__m256i ymm_U_dh32h_subG = _mm256_mullo_epi32(ymm_U1_32h, ymm_dwKgu);
 
 
+				ymm_V_dl32l_subG = _mm256_add_epi32(ymm_V_dl32l_subG, ymm_dw_rounder);
+				ymm_V_dl32h_subG = _mm256_add_epi32(ymm_V_dl32h_subG, ymm_dw_rounder);
+
+				ymm_V_dh32l_subG = _mm256_add_epi32(ymm_V_dh32l_subG, ymm_dw_rounder);
+				ymm_V_dh32h_subG = _mm256_add_epi32(ymm_V_dh32h_subG, ymm_dw_rounder);
+
+				ymm_U_dl32l_subG = _mm256_add_epi32(ymm_U_dl32l_subG, ymm_dw_rounder);
+				ymm_U_dl32h_subG = _mm256_add_epi32(ymm_U_dl32h_subG, ymm_dw_rounder);
+
+				ymm_U_dh32l_subG = _mm256_add_epi32(ymm_U_dh32l_subG, ymm_dw_rounder);
+				ymm_U_dh32h_subG = _mm256_add_epi32(ymm_U_dh32h_subG, ymm_dw_rounder);
+
+
 				ymm_V_dl32l_subG = _mm256_srai_epi32(ymm_V_dl32l_subG, 13);
 				ymm_V_dl32h_subG = _mm256_srai_epi32(ymm_V_dl32h_subG, 13);
 
 				ymm_V_dh32l_subG = _mm256_srai_epi32(ymm_V_dh32l_subG, 13);
 				ymm_V_dh32h_subG = _mm256_srai_epi32(ymm_V_dh32h_subG, 13);
-
 
 				ymm_U_dl32l_subG = _mm256_srai_epi32(ymm_U_dl32l_subG, 13);
 				ymm_U_dl32h_subG = _mm256_srai_epi32(ymm_U_dl32h_subG, 13);
@@ -1612,6 +1683,22 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 				ymm_B_0_32h = _mm256_mullo_epi32(ymm_B_0_32h, ymm_RGBgain);
 				ymm_B_1_32l = _mm256_mullo_epi32(ymm_B_1_32l, ymm_RGBgain);
 				ymm_B_1_32h = _mm256_mullo_epi32(ymm_B_1_32h, ymm_RGBgain);
+
+
+				ymm_R_0_32l = _mm256_add_epi32(ymm_R_0_32l, ymm_dw_rounder);
+				ymm_R_0_32h = _mm256_add_epi32(ymm_R_0_32h, ymm_dw_rounder);
+				ymm_R_1_32l = _mm256_add_epi32(ymm_R_1_32l, ymm_dw_rounder);
+				ymm_R_1_32h = _mm256_add_epi32(ymm_R_1_32h, ymm_dw_rounder);
+
+				ymm_G_0_32l = _mm256_add_epi32(ymm_G_0_32l, ymm_dw_rounder);
+				ymm_G_0_32h = _mm256_add_epi32(ymm_G_0_32h, ymm_dw_rounder);
+				ymm_G_1_32l = _mm256_add_epi32(ymm_G_1_32l, ymm_dw_rounder);
+				ymm_G_1_32h = _mm256_add_epi32(ymm_G_1_32h, ymm_dw_rounder);
+
+				ymm_B_0_32l = _mm256_add_epi32(ymm_B_0_32l, ymm_dw_rounder);
+				ymm_B_0_32h = _mm256_add_epi32(ymm_B_0_32h, ymm_dw_rounder);
+				ymm_B_1_32l = _mm256_add_epi32(ymm_B_1_32l, ymm_dw_rounder);
+				ymm_B_1_32h = _mm256_add_epi32(ymm_B_1_32h, ymm_dw_rounder);
 
 
 				ymm_R_0_32l = _mm256_srai_epi32(ymm_R_0_32l, RGB_DIV_SHIFT_32);
@@ -1810,13 +1897,13 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 
 				}
 
-				int iR = iY + ((iV * Kr) >> 13);
-				int iB = iY + ((iU * Kb) >> 13);
-				int iG = iY - ((iU * Kgu) >> 13) - ((iV * Kgv) >> 13);
+				int iR = iY + (((iV * Kr) + RND_32) >> 13);
+				int iB = iY + (((iU * Kb) + RND_32) >> 13);
+				int iG = iY - (((iU * Kgu) + RND_32) >> 13) - (((iV * Kgv) + RND_32) >> 13);
 
-				iR = ((iR + RGBo) * RGBg) >> RGB_DIV_SHIFT_32;
-				iG = ((iG + RGBo) * RGBg) >> RGB_DIV_SHIFT_32;
-				iB = ((iB + RGBo) * RGBg) >> RGB_DIV_SHIFT_32;
+				iR = (((iR + RGBo) * RGBg) + RND_32) >> RGB_DIV_SHIFT_32;
+				iG = (((iG + RGBo) * RGBg) + RND_32) >> RGB_DIV_SHIFT_32;
+				iB = (((iB + RGBo) * RGBg) + RND_32) >> RGB_DIV_SHIFT_32;
 
 				if (iR < 0) iR = 0; if (iR > 255) iR = 255;
 				if (iG < 0) iG = 0; if (iG > 255) iG = 255;
