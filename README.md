@@ -26,4 +26,4 @@ Params:
 4. gain (short) - scaled to 64 multiplier (64 mean 1.0float - no gain), default 64 (no gain).
 5. cl (bool) - cache load (true/false), default true.
 6. cs (bool) - cache store (true/false), default true.
-7. ib (integer) - 16 or 32 only allowed. 16 or 32 bit intermediate processing (also gain must be scaled to 8192 as 1.0float in 32bit intermediate). 
+7. ib (integer) - 16 or 32 only allowed. 16 or 32 bit intermediate processing (also gain must be scaled to 8192 as 1.0float in 32bit intermediate), defult 16 (faster). 
