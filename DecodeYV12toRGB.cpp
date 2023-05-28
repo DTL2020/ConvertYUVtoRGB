@@ -256,10 +256,10 @@ public:
 			}
 			else if (Matrix == 1) // 709
 			{
-				Kr = 100; // Kr of 709 ? , div64  1.575
-				Kb = 119; // Kb of 709 ? , div64  1.856
-				Kgu = 12; // Kgu of 709 ? , div64 0.187
-				Kgv = 30; // Kgv of 709 ? , div64 0.468
+				Kr = 99; // Kr of 709 ? , div64  1,5748/1,02283
+				Kb = 116; // Kb of 709 ? , div64  1,8556/1,02283
+				Kgu = 12; // Kgu of 709 ? , div64 0,187324/1,02283
+				Kgv = 29; // Kgv of 709 ? , div64 0,468124/1,02283
 			}
 			else if (Matrix == 2) // 2020 (ncl ?)
 			{
@@ -284,10 +284,10 @@ public:
 			}
 			else if (Matrix == 1) // 709
 			{
-				Kr = 12901; // Kr of 709 ? , div8192  1.5748
-				Kb = 15201; // Kb of 709 ? , div8192  1.8556
-				Kgu = 1535; // Kgu of 709 ? , div8192 0.187324
-				Kgv = 3835; // Kgv of 709 ? , div8192 0.468124
+				Kr = 12613; // Kr of 709 ? , div8192  1.5748/1,02283
+				Kb = 14862; // Kb of 709 ? , div8192  1.8556/1,02283
+				Kgu = 1500; // Kgu of 709 ? , div8192 0.187324/1,02283
+				Kgv = 3749; // Kgv of 709 ? , div8192 0.468124/1,02283
 			}
 			else if (Matrix == 2) // 2020 (ncl ?)
 			{
@@ -549,6 +549,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 					row_proc_size = (row_size_Y / 2); 
 					*/
 				__m256i ymm_w_cbias = _mm256_set1_epi16(128);
+				__m256i ymm_w_ybias = _mm256_set1_epi16(16);
 				__m256i ymm_w_rounder = _mm256_set1_epi16(RND_16);
 
 				__m256i ymm_wKr = _mm256_set1_epi16(Kr); 
@@ -781,6 +782,12 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					ymm_U1_16h = _mm256_sub_epi16(ymm_U1_16h, ymm_w_cbias);
 					ymm_V1_16h = _mm256_sub_epi16(ymm_V1_16h, ymm_w_cbias);
+
+					ymm_Y0_16l = _mm256_sub_epi16(ymm_Y0_16l, ymm_w_ybias);
+					ymm_Y1_16l = _mm256_sub_epi16(ymm_Y1_16l, ymm_w_ybias);
+
+					ymm_Y0_16h = _mm256_sub_epi16(ymm_Y0_16h, ymm_w_ybias);
+					ymm_Y1_16h = _mm256_sub_epi16(ymm_Y1_16h, ymm_w_ybias);
 
 
 					__m256i ymm_V_dl16l_addR = _mm256_mullo_epi16(ymm_V0_16l, ymm_wKr);
@@ -1137,7 +1144,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					if (cs == 1)
 					{
-						iY = *l_srcp_Y;
+						iY = *l_srcp_Y - 16;
 						iU = *l_srcp_U - 128;
 						iV = *l_srcp_V - 128;
 					}
@@ -1175,6 +1182,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 							iV = iV >> 8;
 						}
 
+						iY = iY - 16;
 						iU = iU - 128;
 						iV = iV - 128;
 
@@ -1295,6 +1303,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 								row_proc_size = (row_size_Y / 2);
 								*/
 			__m256i ymm_dw_cbias = _mm256_set1_epi32(128);
+			__m256i ymm_dw_ybias = _mm256_set1_epi32(16);
 			__m256i ymm_dw_rounder = _mm256_set1_epi32(RND_32);
 
 			__m256i ymm_dwKr = _mm256_set1_epi32(Kr);
@@ -1540,6 +1549,12 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 
 				ymm_U1_32h = _mm256_sub_epi32(ymm_U1_32h, ymm_dw_cbias);
 				ymm_V1_32h = _mm256_sub_epi32(ymm_V1_32h, ymm_dw_cbias);
+
+				ymm_Y0_32l = _mm256_sub_epi32(ymm_Y0_32l, ymm_dw_ybias);
+				ymm_Y0_32h = _mm256_sub_epi32(ymm_Y0_32h, ymm_dw_ybias);
+
+				ymm_Y1_32l = _mm256_sub_epi32(ymm_Y1_32l, ymm_dw_ybias);
+				ymm_Y1_32h = _mm256_sub_epi32(ymm_Y1_32h, ymm_dw_ybias);
 
 
 				__m256i ymm_V_dl32l_addR = _mm256_mullo_epi32(ymm_V0_32l, ymm_dwKr);
@@ -2623,7 +2638,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm32_mat(PVideoFrame dst, PVideoFrame src, Vid
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYUVtoRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(0), args[5].AsBool(true), args[6].AsBool(false), args[7].AsInt(16), env);
+	return new DecodeYUVtoRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(16), args[5].AsBool(true), args[6].AsBool(false), args[7].AsInt(16), env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
