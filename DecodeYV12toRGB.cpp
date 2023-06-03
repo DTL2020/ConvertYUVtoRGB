@@ -321,10 +321,10 @@ public:
 
 		if (UVgain != 1.0f)
 		{
-			Kr = (short)(Kr * UVgain);
-			Kr = (short)(Kb * UVgain);
-			Kgu = (short)(Kgu * UVgain);
-			Kgv = (short)(Kgv * UVgain);
+			Kr = (short)((float)Kr * UVgain);
+			Kb = (short)((float)Kb * UVgain);
+			Kgu = (short)((float)Kgu * UVgain);
+			Kgv = (short)((float)Kgv * UVgain);
 		}
 
 	}
