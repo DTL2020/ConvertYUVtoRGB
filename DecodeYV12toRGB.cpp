@@ -211,23 +211,34 @@ class DecodeYUVtoRGB : public GenericVideoFilter
 
 	int Matrix;
 
+	// output proc-amp settings
 	short RGBgain;
 	short RGBoffset;
 
+	// caching control
 	bool bCacheLoad;
 	bool bCacheStore;
 
 	int iImmBits;
 
+	// input proc-amp settings
+	short Ybias;
+	short UVbias;
+	float UVgain;
+
+
 public:
-	DecodeYUVtoRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, int _ImmBits, IScriptEnvironment* env) : GenericVideoFilter(_child),
+	DecodeYUVtoRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, int _ImmBits, int _Ybias, int _UVbias, float _UVgain, IScriptEnvironment* env) : GenericVideoFilter(_child),
 		threads(threads_),
 		Matrix(_matrix),
 		RGBgain((short)_gain),
 		RGBoffset((short)_offset),
 		bCacheLoad(_cl),
 		bCacheStore(_cs),
-		iImmBits(_ImmBits)
+		iImmBits(_ImmBits),
+		Ybias((short)_Ybias),
+		UVbias((short)_UVbias),
+		UVgain(_UVgain)
 	{
 		_cpuFlags = env->GetCPUFlags();
 
@@ -306,6 +317,14 @@ public:
 			}
 			else
 				env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
+		}
+
+		if (UVgain != 1.0f)
+		{
+			Kr = (short)(Kr * UVgain);
+			Kr = (short)(Kb * UVgain);
+			Kgu = (short)(Kgu * UVgain);
+			Kgv = (short)(Kgv * UVgain);
 		}
 
 	}
@@ -551,8 +570,8 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 				else // 10 to 16 bit
 					row_proc_size = (row_size_Y / 2); 
 					*/
-				__m256i ymm_w_cbias = _mm256_set1_epi16(128);
-				__m256i ymm_w_ybias = _mm256_set1_epi16(16);
+				__m256i ymm_w_cbias = _mm256_set1_epi16(UVbias);
+				__m256i ymm_w_ybias = _mm256_set1_epi16(Ybias);
 				__m256i ymm_w_rounder = _mm256_set1_epi16(RND_16);
 
 				__m256i ymm_wKr = _mm256_set1_epi16(Kr); 
@@ -774,23 +793,23 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					}
 
-					ymm_U0_16l = _mm256_sub_epi16(ymm_U0_16l, ymm_w_cbias); // superscalarity of 3 at IceLake/SkyLake
-					ymm_V0_16l = _mm256_sub_epi16(ymm_V0_16l, ymm_w_cbias);
+					ymm_U0_16l = _mm256_add_epi16(ymm_U0_16l, ymm_w_cbias); // superscalarity of 3 at IceLake/SkyLake
+					ymm_V0_16l = _mm256_add_epi16(ymm_V0_16l, ymm_w_cbias);
 
-					ymm_U0_16h = _mm256_sub_epi16(ymm_U0_16h, ymm_w_cbias);
-					ymm_V0_16h = _mm256_sub_epi16(ymm_V0_16h, ymm_w_cbias);
+					ymm_U0_16h = _mm256_add_epi16(ymm_U0_16h, ymm_w_cbias);
+					ymm_V0_16h = _mm256_add_epi16(ymm_V0_16h, ymm_w_cbias);
 
-					ymm_U1_16l = _mm256_sub_epi16(ymm_U1_16l, ymm_w_cbias);
-					ymm_V1_16l = _mm256_sub_epi16(ymm_V1_16l, ymm_w_cbias);
+					ymm_U1_16l = _mm256_add_epi16(ymm_U1_16l, ymm_w_cbias);
+					ymm_V1_16l = _mm256_add_epi16(ymm_V1_16l, ymm_w_cbias);
 
-					ymm_U1_16h = _mm256_sub_epi16(ymm_U1_16h, ymm_w_cbias);
-					ymm_V1_16h = _mm256_sub_epi16(ymm_V1_16h, ymm_w_cbias);
+					ymm_U1_16h = _mm256_add_epi16(ymm_U1_16h, ymm_w_cbias);
+					ymm_V1_16h = _mm256_add_epi16(ymm_V1_16h, ymm_w_cbias);
 
-					ymm_Y0_16l = _mm256_sub_epi16(ymm_Y0_16l, ymm_w_ybias);
-					ymm_Y1_16l = _mm256_sub_epi16(ymm_Y1_16l, ymm_w_ybias);
+					ymm_Y0_16l = _mm256_add_epi16(ymm_Y0_16l, ymm_w_ybias);
+					ymm_Y1_16l = _mm256_add_epi16(ymm_Y1_16l, ymm_w_ybias);
 
-					ymm_Y0_16h = _mm256_sub_epi16(ymm_Y0_16h, ymm_w_ybias);
-					ymm_Y1_16h = _mm256_sub_epi16(ymm_Y1_16h, ymm_w_ybias);
+					ymm_Y0_16h = _mm256_add_epi16(ymm_Y0_16h, ymm_w_ybias);
+					ymm_Y1_16h = _mm256_add_epi16(ymm_Y1_16h, ymm_w_ybias);
 
 
 					__m256i ymm_V_dl16l_addR = _mm256_mullo_epi16(ymm_V0_16l, ymm_wKr);
@@ -1147,9 +1166,9 @@ void DecodeYUVtoRGB::DecodeYUV420imm16(PVideoFrame dst, PVideoFrame src, VideoIn
 
 					if (cs == 1)
 					{
-						iY = *l_srcp_Y - 16;
-						iU = *l_srcp_U - 128;
-						iV = *l_srcp_V - 128;
+						iY = *l_srcp_Y + Ybias;
+						iU = *l_srcp_U + UVbias;
+						iV = *l_srcp_V + UVbias;
 					}
 					else
 					{
@@ -1305,8 +1324,8 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 							else // 10 to 16 bit
 								row_proc_size = (row_size_Y / 2);
 								*/
-			__m256i ymm_dw_cbias = _mm256_set1_epi32(128);
-			__m256i ymm_dw_ybias = _mm256_set1_epi32(16);
+			__m256i ymm_dw_cbias = _mm256_set1_epi32(UVbias);
+			__m256i ymm_dw_ybias = _mm256_set1_epi32(Ybias);
 			__m256i ymm_dw_rounder = _mm256_set1_epi32(RND_32);
 
 			__m256i ymm_dwKr = _mm256_set1_epi32(Kr);
@@ -1541,23 +1560,23 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 
 				}
 				*/
-				ymm_U0_32l = _mm256_sub_epi32(ymm_U0_32l, ymm_dw_cbias); // superscalarity of 3 at IceLake/SkyLake
-				ymm_V0_32l = _mm256_sub_epi32(ymm_V0_32l, ymm_dw_cbias);
+				ymm_U0_32l = _mm256_add_epi32(ymm_U0_32l, ymm_dw_cbias); // superscalarity of 3 at IceLake/SkyLake
+				ymm_V0_32l = _mm256_add_epi32(ymm_V0_32l, ymm_dw_cbias);
 
-				ymm_U0_32h = _mm256_sub_epi32(ymm_U0_32h, ymm_dw_cbias);
-				ymm_V0_32h = _mm256_sub_epi32(ymm_V0_32h, ymm_dw_cbias);
+				ymm_U0_32h = _mm256_add_epi32(ymm_U0_32h, ymm_dw_cbias);
+				ymm_V0_32h = _mm256_add_epi32(ymm_V0_32h, ymm_dw_cbias);
 
-				ymm_U1_32l = _mm256_sub_epi32(ymm_U1_32l, ymm_dw_cbias); // superscalarity of 3 at IceLake/SkyLake
-				ymm_V1_32l = _mm256_sub_epi32(ymm_V1_32l, ymm_dw_cbias);
+				ymm_U1_32l = _mm256_add_epi32(ymm_U1_32l, ymm_dw_cbias); 
+				ymm_V1_32l = _mm256_add_epi32(ymm_V1_32l, ymm_dw_cbias);
 
-				ymm_U1_32h = _mm256_sub_epi32(ymm_U1_32h, ymm_dw_cbias);
-				ymm_V1_32h = _mm256_sub_epi32(ymm_V1_32h, ymm_dw_cbias);
+				ymm_U1_32h = _mm256_add_epi32(ymm_U1_32h, ymm_dw_cbias);
+				ymm_V1_32h = _mm256_add_epi32(ymm_V1_32h, ymm_dw_cbias);
 
-				ymm_Y0_32l = _mm256_sub_epi32(ymm_Y0_32l, ymm_dw_ybias);
-				ymm_Y0_32h = _mm256_sub_epi32(ymm_Y0_32h, ymm_dw_ybias);
+				ymm_Y0_32l = _mm256_add_epi32(ymm_Y0_32l, ymm_dw_ybias);
+				ymm_Y0_32h = _mm256_add_epi32(ymm_Y0_32h, ymm_dw_ybias);
 
-				ymm_Y1_32l = _mm256_sub_epi32(ymm_Y1_32l, ymm_dw_ybias);
-				ymm_Y1_32h = _mm256_sub_epi32(ymm_Y1_32h, ymm_dw_ybias);
+				ymm_Y1_32l = _mm256_add_epi32(ymm_Y1_32l, ymm_dw_ybias);
+				ymm_Y1_32h = _mm256_add_epi32(ymm_Y1_32h, ymm_dw_ybias);
 
 
 				__m256i ymm_V_dl32l_addR = _mm256_mullo_epi32(ymm_V0_32l, ymm_dwKr);
@@ -1872,9 +1891,9 @@ void DecodeYUVtoRGB::DecodeYUV420imm32(PVideoFrame dst, PVideoFrame src, VideoIn
 
 				if (cs == 1)
 				{
-					iY = *l_srcp_Y;
-					iU = *l_srcp_U - 128;
-					iV = *l_srcp_V - 128;
+					iY = *l_srcp_Y + Ybias;
+					iU = *l_srcp_U + UVbias;
+					iV = *l_srcp_V + UVbias;
 				}
 				else
 				{
@@ -2028,7 +2047,7 @@ void DecodeYUVtoRGB::DecodeYUV420imm32_mat(PVideoFrame dst, PVideoFrame src, Vid
 							else // 10 to 16 bit
 								row_proc_size = (row_size_Y / 2);
 								*/
-			__m256i ymm_dw_cbias = _mm256_set1_epi32(128);
+			__m256i ymm_dw_cbias = _mm256_set1_epi32(UVbias);
 
 			__m256i ymm_dwKr = _mm256_set1_epi32(Kr);
 			__m256i ymm_dwKb = _mm256_set1_epi32(Kb);
@@ -2641,7 +2660,18 @@ void DecodeYUVtoRGB::DecodeYUV420imm32_mat(PVideoFrame dst, PVideoFrame src, Vid
 
 AVSValue __cdecl Create_Decode(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-	return new DecodeYUVtoRGB(args[0].AsClip(), args[1].AsInt(1), args[2].AsInt(0), args[3].AsInt(64), args[4].AsInt(16), args[5].AsBool(true), args[6].AsBool(false), args[7].AsInt(16), env);
+	return new DecodeYUVtoRGB(args[0].AsClip(), 
+		args[1].AsInt(1), // threads 
+		args[2].AsInt(0), // matrix 
+		args[3].AsInt(64), // gain 
+		args[4].AsInt(16), // offset
+		args[5].AsBool(true), // cl 
+		args[6].AsBool(false), // cs 
+		args[7].AsInt(16), //ib
+		args[8].AsInt(-16), // Ybias
+		args[9].AsInt(-128), // UVbias
+		args[10].AsFloat(1.0f), // UVgain
+		env);
 }
 
 const AVS_Linkage* AVS_linkage = 0;
@@ -2649,7 +2679,7 @@ const AVS_Linkage* AVS_linkage = 0;
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage* const vectors)
 {
 	AVS_linkage = vectors;
-	env->AddFunction("DecodeYUVtoRGB", "c[threads]i[matrix]i[gain]i[offset]i[cl]b[cs]b[ib]i", Create_Decode, 0);
+	env->AddFunction("DecodeYUVtoRGB", "c[threads]i[matrix]i[gain]i[offset]i[cl]b[cs]b[ib]i[Ybias]i[UVbias]i[UVgain]f", Create_Decode, 0);
 
 	return "Decode YUV to RGB sample plugin";
 }
