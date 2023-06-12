@@ -7,7 +7,7 @@
 #define RGB_DIV_SHIFT 6
 #define RGB_DIV_SHIFT_32 13
 
-#define RND_16 32 // 1<<3 ?
+#define RND_16 16 // 1<<3 ?
 #define RND_32 4096 // 1<<12 ?
 
 typedef enum ColorRange_e {
@@ -79,6 +79,7 @@ static void BuildMatrix_Yuv2Rgb_core(double Kr, double Kb, int int_arith_shift, 
 {
 	int Sy, Suv, Oy;
 	float Sy_f, Suv_f, Oy_f;
+	float Suv_to_y = full_scale ? (219.0f / 224.0f) : 1;
 
 	if (bits_per_pixel <= 16) {
 		Oy = full_scale ? 0 : (16 << (bits_per_pixel - 8));
@@ -132,29 +133,29 @@ static void BuildMatrix_Yuv2Rgb_core(double Kr, double Kb, int int_arith_shift, 
 	const double Kg = 1. - Kr - Kb;
 
 	if (bits_per_pixel <= 16) {
-		const int Srgb = (1 << bits_per_pixel) - 1;  // 255;
+		const int Srgb = (1 << bits_per_pixel) - 1; // 255;
 		matrix.y_b = (int)(Srgb * 1.000 * mulfac / Sy + 0.5); //Y
-		matrix.u_b = (int)(Srgb * (1 - Kb) * mulfac / Suv + 0.5); //U
+		matrix.u_b = (int)(Srgb * (1 - Kb) * mulfac * Suv_to_y / Suv + 0.5); //U
 		matrix.v_b = (int)(Srgb * 0.000 * mulfac / Suv + 0.5); //V
 		matrix.y_g = (int)(Srgb * 1.000 * mulfac / Sy + 0.5);
-		matrix.u_g = (int)(Srgb * (Kb - 1) * Kb / Kg * mulfac / Suv + 0.5);
-		matrix.v_g = (int)(Srgb * (Kr - 1) * Kr / Kg * mulfac / Suv + 0.5);
+		matrix.u_g = (int)(Srgb * (Kb - 1) * Kb / Kg * mulfac * Suv_to_y / Suv + 0.5);
+		matrix.v_g = (int)(Srgb * (Kr - 1) * Kr / Kg * mulfac * Suv_to_y / Suv + 0.5);
 		matrix.y_r = (int)(Srgb * 1.000 * mulfac / Sy + 0.5);
 		matrix.u_r = (int)(Srgb * 0.000 * mulfac / Suv + 0.5);
-		matrix.v_r = (int)(Srgb * (1 - Kr) * mulfac / Suv + 0.5);
+		matrix.v_r = (int)(Srgb * (1 - Kr) * mulfac * Suv_to_y / Suv + 0.5);
 		matrix.offset_y = -Oy;
 	}
 
 	double Srgb_f = bits_per_pixel == 32 ? 1.0 : ((1 << bits_per_pixel) - 1);
 	matrix.y_b_f = (float)(Srgb_f * 1.000 / Sy_f); //Y
-	matrix.u_b_f = (float)(Srgb_f * (1 - Kb) / Suv_f); //U
+	matrix.u_b_f = (float)(Srgb_f * (1 - Kb) * Suv_to_y / Suv_f); //U
 	matrix.v_b_f = (float)(Srgb_f * 0.000 / Suv_f); //V
 	matrix.y_g_f = (float)(Srgb_f * 1.000 / Sy_f);
-	matrix.u_g_f = (float)(Srgb_f * (Kb - 1) * Kb / Kg / Suv_f);
-	matrix.v_g_f = (float)(Srgb_f * (Kr - 1) * Kr / Kg / Suv_f);
+	matrix.u_g_f = (float)(Srgb_f * (Kb - 1) * Kb / Kg * Suv_to_y / Suv_f);
+	matrix.v_g_f = (float)(Srgb_f * (Kr - 1) * Kr / Kg * Suv_to_y / Suv_f);
 	matrix.y_r_f = (float)(Srgb_f * 1.000 / Sy_f);
 	matrix.u_r_f = (float)(Srgb_f * 0.000 / Suv_f);
-	matrix.v_r_f = (float)(Srgb_f * (1 - Kr) / Suv_f);
+	matrix.v_r_f = (float)(Srgb_f * (1 - Kr) * Suv_to_y / Suv_f);
 	matrix.offset_y_f = -Oy_f;
 }
 
@@ -226,6 +227,28 @@ class DecodeYUVtoRGB : public GenericVideoFilter
 	short UVbias;
 	float UVgain;
 
+	/* Computing of (Kr, Kgu, Kgv, Kb) from (Yr and Yb) coefficients of YUV colour system:
+
+	Yr
+	Yg = 1.0 - (Yr + Yb)
+	Yb
+	
+	Kb = (1.0 - Yb) * 2
+	Kr = (1.0 - Yr) * 2
+
+	Kgu = (Yb * Kb) / Yg
+	Kgv = (Yr * Kr) / Yg
+
+	for Digital UV (601/709/2020):
+	RatioUVtoY = 219.0/224.0
+
+	Kr,Kb,Kgu,Kgv * = RatioUtoY 
+
+	*/
+
+	// main global params for YUV to RGB
+	float fYr; 
+	float fYb; 
 
 public:
 	DecodeYUVtoRGB(PClip _child, int threads_, int _matrix, int _gain, int _offset, bool _cl, bool _cs, int _ImmBits, int _Ybias, int _UVbias, float _UVgain, IScriptEnvironment* env) : GenericVideoFilter(_child),
@@ -262,34 +285,37 @@ public:
 			env->ThrowError("DecodeYUVtoRGB: Only YUV input supported.");
 		}
 
+		float fRatioUVtoY = (float)(219.0 / 224.0);
 
-		if (iImmBits == 16)
+		float mulfac = float(1 << RGB_DIV_SHIFT); // integer aritmetic precision scale
+		if (iImmBits == 32)	mulfac = float(1 << RGB_DIV_SHIFT_32); // integer aritmetic precision scale
+
+		if (Matrix == 0) // 601
 		{
-
-			if (Matrix == 0) // 601
-			{
-				Kr = 88; // Kr of 601 ? , div64  1.402/1.02283
-				Kb = 111; // Kb of 601 ? , div64  1.772/1.02283
-				Kgu = 22; // Kgu of 601 ? , div64 0.344136/1.02283
-				Kgv = 45; // Kgv of 601 ? , div64 0.714136/1.02283 */
-			}
-			else if (Matrix == 1) // 709
-			{
-				Kr = 99; // Kr of 709 ? , div64  1,5748/1,02283
-				Kb = 116; // Kb of 709 ? , div64  1,8556/1,02283
-				Kgu = 12; // Kgu of 709 ? , div64 0,187324/1,02283
-				Kgv = 29; // Kgv of 709 ? , div64 0,468124/1,02283
-			}
-			else if (Matrix == 2) // 2020 (ncl ?)
-			{
-				Kr = 92; // Kr of 2020 ? , div64  1.4747/1.02283
-				Kb = 118; // Kb of 2020 ? , div64  1.8814/1.02283
-				Kgu = 10; // Kgu of 2020 ? , div64 0.164553/1.02283
-				Kgv = 36; // Kgv of 2020 ? , div64 0.571392/1.02283
-			}
-			else
-				env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
+			fYr = 0.299f;
+			fYb = 0.114f;
 		}
+		else if (Matrix == 1) // 709
+		{
+			fYr = 0.2126f;
+			fYb = 0.0722f;
+		}
+		else if (Matrix == 2) // 2020 (ncl ?)
+		{
+			fYr = 0.2627f;
+			fYb = 0.0593f;
+		}
+		else
+			env->ThrowError("DecodeYUVtoRGB: matrix %d not supported.", Matrix);
+
+		float fKb = (1.0f - fYb) * 2.0f;
+		float fKr = (1.0f - fYr) * 2.0f;
+		float fYg = 1.0f - (fYr + fYb);
+
+		Kr = (short)(fKr * fRatioUVtoY * UVgain * mulfac + 0.5f);
+		Kb = (short)(fKb * fRatioUVtoY * UVgain * mulfac + 0.5f);
+		Kgu = (short)(((fYb * fKb) / fYg) * fRatioUVtoY * UVgain * mulfac + 0.5f);
+		Kgv = (short)(((fYr * fKr) / fYg) * fRatioUVtoY * UVgain * mulfac + 0.5f);
 
 		if (iImmBits == 32)
 		{
